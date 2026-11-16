@@ -1,35 +1,47 @@
 package boot
 
+import "mallard-os/internal/logger"
+
 type BootStep interface {
 	Name() string
 	Init() error
 }
 
 type Manager struct {
-	Steps []BootStep
+	Steps  []BootStep
+	Logger *logger.Logger
 }
 
-func NewManager(steps...BootStep) *Manager {
+func NewManager(steps ...BootStep) *Manager {
 	return &Manager{
 		Steps: steps,
 	}
 }
 
+func (m *Manager) SetLogger(log *logger.Logger) {
+	m.Logger = log
+}
+
+func (m *Manager) log(level logger.Level, message string) {
+	if m.Logger != nil {
+		m.Logger.Log(level, message)
+	}
+}
+
 func (m *Manager) Run() error {
-    println("[BOOT] Starting Mallard-OS...")
+	m.log(logger.INFO, "Starting MallardOS...")
 
-    for _, step := range m.Steps {
-        println("[BOOT] Initializing:", step.Name())
+	for _, step := range m.Steps {
+		m.log(logger.INFO, "Initializing: "+step.Name())
 
-        if err := step.Init(); err != nil {
-            println("[FAIL]", step.Name())
-            return err
-        }
+		if err := step.Init(); err != nil {
+			m.log(logger.ERROR, step.Name()+" initialization failed")
+			return err
+		}
 
-        println("[ OK ]", step.Name(), "initialized")
-    }
+		m.log(logger.INFO, step.Name()+" initialized")
+	}
 
-    println("[INFO] Boot sequence completed.")
-
-    return nil
+	m.log(logger.INFO, "Boot sequence completed.")
+	return nil
 }

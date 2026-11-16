@@ -1,24 +1,33 @@
 package main
 
 import (
-    "mallard-os/internal/boot"
-    "mallard-os/internal/hal"
+	"time"
+
+	"mallard-os/internal/boot"
+	"mallard-os/internal/hal"
+	"mallard-os/internal/logger"
 )
 
 func main() {
-    console := hal.NewUSBConsole()
+	time.Sleep(3 * time.Second)
 
-    manager := boot.NewManager(
-        console,
-    )
+	log := logger.New()
 
-    if err := manager.Run(); err != nil {
-        println("[FATAL] MallardOS boot failed")
+	console := hal.NewUSBConsole()
 
-        for {
-        }
-    }
+	hardware := hal.NewManager(console)
 
-    for {
-    }
+	manager := boot.NewManager(hardware)
+	manager.SetLogger(log)
+
+	if err := manager.Run(); err != nil {
+		log.Log(logger.ERROR, "MallardOS boot failed")
+
+		for {
+		}
+	}
+
+	for {
+	}
 }
+
