@@ -1,12 +1,24 @@
 package main
 
 import (
-	"time"
+    "mallard-os/internal/boot"
+    "mallard-os/internal/hal"
 )
 
 func main() {
-	for {
-		println("Hello from TinyGo!")
-		time.Sleep(1 * time.Second)
-	}
+    console := hal.NewUSBConsole()
+
+    manager := boot.NewManager(
+        console,
+    )
+
+    if err := manager.Run(); err != nil {
+        println("[FATAL] MallardOS boot failed")
+
+        for {
+        }
+    }
+
+    for {
+    }
 }
