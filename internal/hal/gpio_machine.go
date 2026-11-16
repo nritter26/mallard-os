@@ -6,6 +6,12 @@ type machineGPIOPin struct {
 	pin machine.Pin
 }
 
+func NewMachinePin(pin machine.Pin) GPIOPin {
+	return machineGPIOPin {
+		pin: pin,
+	}
+}
+
 func (p machineGPIOPin) Configure(mode PinMode) {
 	machineMode := machine.PinInput
 

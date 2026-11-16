@@ -10,12 +10,16 @@ import (
 )
 
 func (d Device) WriteByte(c byte) error {
+	freq, err := machine.GetCPUFrequency()
+	if err != nil {
+		return err
+	}
 	portSet, maskSet := d.Pin.PortMaskSet()
 	portClear, maskClear := d.Pin.PortMaskClear()
 	mask := interrupt.Disable()
 
-	switch machine.CPUFrequency() {
-	case 160e6: // 160MHz
+	switch freq {
+	case 160_000_000: // 160MHz
 		// See:
 		// https://wp.josh.com/2014/05/13/ws2812-neopixels-are-not-so-finicky-once-you-get-to-know-them/
 		// Because I do not know the exact instruction timings, I'm going to
