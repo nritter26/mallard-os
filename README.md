@@ -1,4 +1,4 @@
-# MallardOS v0.1
+# Mallard-OS v0.1
 
 *TinyGo-first embedded operating environment for the ESP32-S3 (N16R8). Status: work in progress.*
 
@@ -41,7 +41,7 @@ Everything that touches C sits behind a small Go interface (`Storage`, `Crypto`,
 ## 4. Architecture
 
 ```
-                 MallardOS
+                 Mallard-OS
                      |
         +------------+------------+
         |            |            |
@@ -101,7 +101,7 @@ Test order for the unknowns: (1) USB serial console, (2) LittleFS over `BlockDev
 | v0.5 | Hardware management services (`gpio list`) |
 | v0.6 | Wi-Fi + HTTP server (`wifi scan`) |
 | v0.7 | Application management |
-| v1.0 | First usable MallardOS release |
+| v1.0 | First usable Mallard-OS release |
 
 ## 9. Target commands by version
 
