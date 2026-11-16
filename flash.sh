@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-TARGET="xiao-esp32s3"
+TARGET="esp32s3-generic"
 PORT="/dev/ttyACM0"
 PROGRAM="cmd/mallard-os/main.go"
 
