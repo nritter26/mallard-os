@@ -16,7 +16,10 @@ func main() {
 	log := logger.New()
 
 	// Initialize hardware devices
-	console := hal.NewUSBConsole()
+	usbConsole := hal.NewUSBConsole()
+
+	// Depend on the generic Console interface
+	var console hal.Console = usbConsole
 
 	led := hal.NewGPIO(
 		"status-led",
@@ -26,7 +29,7 @@ func main() {
 
 	// Register devices with HAL
 	hardware := hal.NewManager(
-		console,
+		usbConsole,
 		led,
 	)
 
@@ -36,7 +39,7 @@ func main() {
 
 	// Execute boot sequence
 	if err := manager.Run(); err != nil {
-		log.Log(logger.ERROR, "MallardOS boot failed")
+		log.Log(logger.ERROR, "Mallard-OS boot failed")
 
 		for {
 		}
@@ -64,20 +67,47 @@ func main() {
 
 	log.Log(logger.INFO, "MallardOS hardware initialized")
 
+	// Console startup message
+	_, _ = console.Write([]byte("\r\nMallard-OS USB Console Ready\r\n"))
+	_, _ = console.Write([]byte("It's an OS with a duck...\r\n"))
+	_, _ = console.Write([]byte("Waiting for USB input...\r\n"))
+
 	// Main system loop
+	lastBlink := time.Now()
+	ledOn := false
+
 	for {
-		if err := led.Write(true); err != nil {
-			log.Log(logger.ERROR, "LED ON failed")
+		// USB receive diagnostics
+		count := console.Buffered()
+
+		if count > 0 {
+			println("[DEBUG] RX bytes:", count)
+
+			char, err := console.ReadByte()
+
+			if err != nil {
+				println("[DEBUG] Read error")
+			} else {
+				println("[DEBUG] Received:", char)
+
+				_, err = console.Write([]byte{char})
+				if err != nil {
+					log.Log(logger.ERROR, "Console write failed")
+				}
+			}
 		}
 
-		time.Sleep(time.Second)
+		// LED heartbeat
+		if time.Since(lastBlink) >= time.Second {
+			ledOn = !ledOn
 
-		if err := led.Write(false); err != nil {
-			log.Log(logger.ERROR, "LED OFF failed")
+			if err := led.Write(ledOn); err != nil {
+				log.Log(logger.ERROR, "LED toggle failed")
+			}
+
+			lastBlink = time.Now()
 		}
 
-		time.Sleep(time.Second)
-
-		println("[INFO] Mallard-OS alive")
+		time.Sleep(10 * time.Millisecond)
 	}
 }

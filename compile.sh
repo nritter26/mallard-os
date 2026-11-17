@@ -1,9 +1,9 @@
 #!/bin/bash
 set -e
 
-TARGET="xiao-esp32s3"
+TARGET="esp32s3-generic"
 PROGRAM="cmd/mallard-os/main.go"
-OUTPUT="mallard-os.bin"
+OUTPUT="tmp/mallard-os.bin"
 
 echo "Compiling MallardOS for $TARGET..."
 
