@@ -3,11 +3,12 @@ package main
 import (
 	"time"
 
+	"machine"
+
 	"mallard-os/internal/boot"
+	"mallard-os/internal/console"
 	"mallard-os/internal/hal"
 	"mallard-os/internal/logger"
-
-	"machine"
 )
 
 func main() {
@@ -18,9 +19,16 @@ func main() {
 	// Initialize hardware devices
 	usbConsole := hal.NewUSBConsole()
 
-	// Depend on the generic Console interface
-	var console hal.Console = usbConsole
+	// Create hardware-independent terminal
+	terminal := console.New(usbConsole)
 
+	// Initialize terminal logger
+	terminalLog := console.NewLogger(terminal)
+
+	// Initialize line editor
+	editor := console.NewLineEditor(terminal)
+
+	// Configure status LED
 	led := hal.NewGPIO(
 		"status-led",
 		hal.NewMachinePin(machine.GPIO21),
@@ -39,9 +47,10 @@ func main() {
 
 	// Execute boot sequence
 	if err := manager.Run(); err != nil {
-		log.Log(logger.ERROR, "Mallard-OS boot failed")
+		log.Log(logger.ERROR, "Mallard-OS boot failed: "+err.Error())
 
 		for {
+			time.Sleep(time.Second)
 		}
 	}
 
@@ -52,6 +61,7 @@ func main() {
 		log.Log(logger.ERROR, "Failed to set CPU frequency")
 
 		for {
+			time.Sleep(time.Second)
 		}
 	}
 
@@ -60,6 +70,7 @@ func main() {
 		log.Log(logger.ERROR, "Failed to read CPU frequency")
 
 		for {
+			time.Sleep(time.Second)
 		}
 	}
 
@@ -67,34 +78,29 @@ func main() {
 
 	log.Log(logger.INFO, "MallardOS hardware initialized")
 
-	// Console startup message
-	_, _ = console.Write([]byte("\r\nMallard-OS USB Console Ready\r\n"))
-	_, _ = console.Write([]byte("It's an OS with a duck...\r\n"))
-	_, _ = console.Write([]byte("Waiting for USB input...\r\n"))
+	// Terminal startup
+	_ = terminalLog.Info("MallardOS starting...")
+	_ = terminalLog.Success("USB initialized")
+	_ = terminalLog.Warn("Running without persistent storage")
+	_ = terminal.Println("It's an OS with a duck...")
+	_ = terminal.Println("Waiting for input...")
+	_ = terminal.Print("> ")
 
 	// Main system loop
 	lastBlink := time.Now()
 	ledOn := false
 
 	for {
-		// USB receive diagnostics
-		count := console.Buffered()
+		// Process terminal input
+		line, ready, err := editor.Poll()
 
-		if count > 0 {
-			println("[DEBUG] RX bytes:", count)
+		if err != nil {
+			log.Log(logger.ERROR, "Terminal input error")
+		}
 
-			char, err := console.ReadByte()
-
-			if err != nil {
-				println("[DEBUG] Read error")
-			} else {
-				println("[DEBUG] Received:", char)
-
-				_, err = console.Write([]byte{char})
-				if err != nil {
-					log.Log(logger.ERROR, "Console write failed")
-				}
-			}
+		if ready {
+			_ = terminalLog.Info("Received: " + line)
+			_ = terminal.Print("> ")
 		}
 
 		// LED heartbeat

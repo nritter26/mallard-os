@@ -14,6 +14,8 @@ type USBConsole struct{
 	initialized bool
 }
 
+var _ Console = (*USBConsole)(nil)
+
 func NewUSBConsole() *USBConsole {
 	return &USBConsole{}
 }
