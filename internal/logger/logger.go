@@ -5,24 +5,31 @@ import "time"
 type Level uint8
 
 const (
-	INFO Level = iota
+	DEBUG Level = iota
+	INFO
 	WARN
 	ERROR
-	DEBUG
+
 )
 
-type Logger struct {
-	strarted time.Time
+type Writer interface {
+	Write([]byte) (int, error)
 }
 
-func New() *Logger {
+type Logger struct {
+	started time.Time
+	writer Writer
+}
+
+func New(writer Writer) *Logger {
 	return &Logger{
-		strarted: time.Now(),
+		started: time.Now(),
+		writer: writer,
 	}
 }
 
 func (l *Logger) Log(level Level, message string) {
-	elapsed := time.Since(l.strarted).Milliseconds()
+	elapsed := time.Since(l.started).Milliseconds()
 
 	var label string
 
@@ -32,12 +39,16 @@ func (l *Logger) Log(level Level, message string) {
 	case WARN:
 		label = "WARN"
 	case ERROR:
+		label = "ERROR"
+	case DEBUG:
 		label = "DEBUG"
 	default:
 		label = "UNKNOWN"
 	}
 
-	println("[", label, "]", elapsed, "ms", message)
+	_, err := fmt.Fprintf(l.writer, "[%s] %d ms %s\n", label, elapsed, message)
+	if err != nil {
+
 }
 
 

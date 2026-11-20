@@ -13,7 +13,7 @@ import (
 func main() {
 	time.Sleep(3 * time.Second)
 
-	log := logger.New()
+	log := logger.New(machine.Serial)
 
 	// Initialize hardware devices
 	usbConsole := hal.NewUSBConsole()

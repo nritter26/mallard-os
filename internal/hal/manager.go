@@ -1,5 +1,7 @@
 package hal
 
+import "fmt"
+
 type Device interface {
 	Name() string
 	Init() error
@@ -18,7 +20,11 @@ func NewManager(devices ...Device) *Manager {
 func (m *Manager) Init() error {
 	for _, device := range m.Devices {
 		if err := device.Init(); err != nil {
-			return err
+			return fmt.Errorf(
+				"hal: device %s initialization failed: %w",
+				device.Name(),
+				err,
+			)
 		}
 	}
 
