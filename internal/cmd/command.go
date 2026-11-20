@@ -19,6 +19,11 @@ func Register(registry *shell.Registry) error {
 			Description: "Display system uptime",
 			Handler:     Uptime,
 		},
+		{
+			Name:        "meminfo",
+			Description: "Display runtime memory information",
+			Handler:     Meminfo,
+		},
 	}
 
 	for _, command := range commands {

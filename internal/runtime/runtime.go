@@ -1,6 +1,9 @@
 package runtime
 
-import "time"
+import (
+	tinygoruntime "runtime"
+	"time"
+)
 
 var bootTime time.Time
 
@@ -16,4 +19,11 @@ func Uptime() time.Duration {
 	}
 
 	return time.Since(bootTime)
+}
+
+// MemoryStats returns the current TinyGo runtime memory statistics
+func MemoryStats() tinygoruntime.MemStats {
+	var stats tinygoruntime.MemStats
+	tinygoruntime.ReadMemStats(&stats)
+	return stats
 }
