@@ -15,7 +15,7 @@ type CommandHandler func(args []string) error
 
 type Command struct {
 	Name string
-	Descripton string
+	Description string
 	Handler CommandHandler
 }
 

@@ -9,6 +9,7 @@ import (
 	"mallard-os/internal/console"
 	"mallard-os/internal/hal"
 	"mallard-os/internal/logger"
+	"mallard-os/internal/shell"
 )
 
 func main() {
@@ -24,9 +25,6 @@ func main() {
 
 	// Initialize terminal logger
 	terminalLog := console.NewLogger(terminal)
-
-	// Initialize line editor
-	editor := console.NewLineEditor(terminal)
 
 	// Configure status LED
 	led := hal.NewGPIO(
@@ -76,31 +74,54 @@ func main() {
 
 	println("[INFO] CPU frequency:", freq)
 
-	log.Log(logger.INFO, "MallardOS hardware initialized")
+	log.Log(logger.INFO, "Mallard-OS hardware initialized")
 
 	// Terminal startup
-	_ = terminalLog.Info("MallardOS starting...")
+	_ = terminalLog.Info("Mallard-OS starting...")
 	_ = terminalLog.Success("USB initialized")
 	_ = terminalLog.Warn("Running without persistent storage")
-	_ = terminal.Println("It's an OS with a duck...")
-	_ = terminal.Println("Waiting for input...")
-	_ = terminal.Print("> ")
+
+	// Initialize shell command registry
+	registry := shell.NewRegistry()
+
+	// Register built-in help command
+	if err := registry.Register(shell.Command{
+		Name:        "help",
+		Description: "Show available commands",
+		Handler: func(args []string) error {
+			if err := terminal.Println("Available commands:"); err != nil {
+				return err
+			}
+
+			return terminal.Println("  help    Show available commands")
+		},
+	}); err != nil {
+		log.Log(logger.ERROR, "Failed to register help command: "+err.Error())
+
+		for {
+			time.Sleep(time.Second)
+		}
+	}
+
+	// Initialize MallardOS shell
+	mallardShell := shell.NewShell(terminal, registry)
+
+	if err := mallardShell.Start(); err != nil {
+		log.Log(logger.ERROR, "Shell initialization failed: "+err.Error())
+
+		for {
+			time.Sleep(time.Second)
+		}
+	}
 
 	// Main system loop
 	lastBlink := time.Now()
 	ledOn := false
 
 	for {
-		// Process terminal input
-		line, ready, err := editor.Poll()
-
-		if err != nil {
-			log.Log(logger.ERROR, "Terminal input error")
-		}
-
-		if ready {
-			_ = terminalLog.Info("Received: " + line)
-			_ = terminal.Print("> ")
+		// Process shell input
+		if err := mallardShell.Poll(); err != nil {
+			log.Log(logger.ERROR, "Shell input error: "+err.Error())
 		}
 
 		// LED heartbeat
