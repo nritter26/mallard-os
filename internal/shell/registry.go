@@ -2,6 +2,7 @@ package shell
 
 import (
 	"errors"
+	"sort"
 	"strings"
 )
 
@@ -11,7 +12,7 @@ var (
 	ErrInvalidCommand = errors.New("invalid command")
 )
 
-type CommandHandler func(args []string) error
+type CommandHandler func(io CommandIO, args []string) error
 
 type Command struct {
 	Name string
@@ -23,6 +24,10 @@ type Registry struct {
 	commands map[string]Command
 }
 
+type CommandIO interface {
+	Print(text string) error
+	Println(text string) error
+}
 func NewRegistry() *Registry {
 	return &Registry{
 		commands: make(map[string]Command),
@@ -54,11 +59,26 @@ func (r *Registry) Lookup(name string) (Command, bool) {
 }
 
 // Execute runs a registered command
-func (r *Registry) Execute(name string, args []string) error {
+func (r *Registry) Execute(name string, args []string, io CommandIO) error {
 	cmd, exists := r.Lookup(name)
 	if !exists {
 		return ErrCommandNotFound
 	}
 
-	return cmd.Handler(args)
+	return cmd.Handler(io, args)
+}
+
+// Commands returns all registered commands in alphabetical order
+func (r *Registry) Commands() []Command {
+	commands := make([]Command, 0, len(r.commands))
+
+	for _, command := range r.commands {
+		commands = append(commands, command)
+	}
+
+	sort.Slice(commands, func(i, j int) bool {
+		return commands[i].Name < commands[j].Name
+	})
+
+	return commands
 }

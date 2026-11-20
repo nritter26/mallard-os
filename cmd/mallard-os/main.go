@@ -2,9 +2,9 @@ package main
 
 import (
 	"time"
-
 	"machine"
 
+	builtin "mallard-os/internal/cmd"
 	"mallard-os/internal/boot"
 	"mallard-os/internal/console"
 	"mallard-os/internal/hal"
@@ -84,26 +84,16 @@ func main() {
 	// Initialize shell command registry
 	registry := shell.NewRegistry()
 
-	// Register built-in help command
-	if err := registry.Register(shell.Command{
-		Name:        "help",
-		Description: "Show available commands",
-		Handler: func(args []string) error {
-			if err := terminal.Println("Available commands:"); err != nil {
-				return err
-			}
-
-			return terminal.Println("  help    Show available commands")
-		},
-	}); err != nil {
-		log.Log(logger.ERROR, "Failed to register help command: "+err.Error())
+	// Register built-in commands
+	if err := builtin.Register(registry); err != nil {
+		log.Log(logger.ERROR, "Failed to register built-in commands: "+err.Error())
 
 		for {
 			time.Sleep(time.Second)
 		}
 	}
 
-	// Initialize MallardOS shell
+	// Initialize Mallard-OS shell
 	mallardShell := shell.NewShell(terminal, registry)
 
 	if err := mallardShell.Start(); err != nil {

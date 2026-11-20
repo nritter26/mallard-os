@@ -82,7 +82,7 @@ func (s *Shell) Poll() error {
 		return s.printPrompt()
 	}
 
-	err = s.registry.Execute(command, args)
+	err = s.registry.Execute(command, args, s.terminal)
 	if err != nil {
 		if errors.Is(err, ErrCommandNotFound) {
 			err = s.terminal.Println("unknown command: " + command)
