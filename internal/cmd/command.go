@@ -14,6 +14,11 @@ func Register(registry *shell.Registry) error {
 			Description: "Display Mallard-OS system information",
 			Handler:     Info,
 		},
+		{
+			Name:        "uptime",
+			Description: "Display system uptime",
+			Handler:     Uptime,
+		},
 	}
 
 	for _, command := range commands {

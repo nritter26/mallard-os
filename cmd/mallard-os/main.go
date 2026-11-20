@@ -5,6 +5,7 @@ import (
 	"machine"
 
 	builtin "mallard-os/internal/cmd"
+	mallardruntime "mallard-os/internal/runtime"
 	"mallard-os/internal/boot"
 	"mallard-os/internal/console"
 	"mallard-os/internal/hal"
@@ -13,6 +14,10 @@ import (
 )
 
 func main() {
+
+	// Initialize run time clock
+	mallardruntime.Initialize()
+
 	time.Sleep(3 * time.Second)
 
 	log := logger.New(machine.Serial)
