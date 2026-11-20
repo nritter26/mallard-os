@@ -376,4 +376,4 @@ The goal is not simply to run Go applications on an ESP32.
 
 The goal is to build a small, modular embedded operating environment with its own terminal, shell, services, hardware management and application architecture.
 
-**MallardOS — An OS with a duck one step at a time**
+**MallardOS — An OS with a duck going one step at a time**
