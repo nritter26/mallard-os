@@ -9,3 +9,8 @@ type Subsystem interface {
 type Starter interface {
 	Start() error
 }
+
+// Stopper is implemented by subsystems that support graceful shutdown
+type Stopper interface {
+	Stop() error
+}

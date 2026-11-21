@@ -3,6 +3,7 @@ package kernel
 import (
 	"errors"
 	"testing"
+	"strings"
 )
 
 func TestNewKernelStartsUninitialized(t *testing.T) {
@@ -212,6 +213,61 @@ func TestSubsystemStartFailure(t *testing.T) {
 	}
 }
 
+func TestInitializationStopsOnFailure(t *testing.T) {
+	k := New()
+
+	var order []string
+
+	subsystems := []*mockSubsystem{
+		{
+			name:  "console",
+			order: &order,
+		},
+		{
+			name:   "storage",
+			failed: true,
+			order:  &order,
+		},
+		{
+			name:  "network",
+			order: &order,
+		},
+	}
+
+	for _, subsystem := range subsystems {
+		if err := k.Register(subsystem); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	err := k.Initialize()
+
+	if err == nil {
+		t.Fatal("Initialize() expected an error")
+	}
+
+	expected := []string{"console", "storage"}
+
+	if len(order) != len(expected) {
+		t.Fatalf("initialized %v, want %v", order, expected)
+	}
+
+	for i, name := range expected {
+		if order[i] != name {
+			t.Fatalf("initialization order[%d] = %s, want %s",
+				 i, order[i], name)
+		}
+	}
+
+	if subsystems[2].initialized {
+		t.Fatal("network subsystem initialized after storage failure")
+	}
+
+	if got := k.State(); got != StateFailed {
+		t.Fatalf("State() = %v, want %v", got, StateFailed)
+	}
+}
+
 type mockSubsystem struct {
 	name        string
 	failed      bool
@@ -219,6 +275,9 @@ type mockSubsystem struct {
 	initialized bool
 	startCalled bool
 	order *[]string
+	stopFailed bool
+	stopCalled bool
+	stopOrder *[]string
 }
 
 func (m *mockSubsystem) Name() string {
@@ -247,4 +306,141 @@ func (m *mockSubsystem) Start() error {
 	}
 
 	return nil
+}
+
+func (m *mockSubsystem) Stop() error {
+	m.stopCalled = true
+
+	if m.stopOrder != nil {
+		*m.stopOrder = append(*m.stopOrder, m.name)
+	}
+
+	if m.stopFailed {
+		return errors.New("subsystem shutdown failed")
+	}
+
+	return nil
+}
+
+func TestShutdownTransitionsToStopped(t *testing.T) {
+	k := New()
+
+	k.Register(&mockSubsystem{name: "console"})
+	k.Initialize()
+	k.Start()
+
+	if err := k.Shutdown(); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := k.State(); got != StateStopped {
+		t.Fatalf("State() = %v, want %v", got, StateStopped)
+	}
+}
+
+func TestShutdownReverseOrder(t *testing.T) {
+	k := New()
+
+	var order []string
+
+	names := []string{"console", "storage", "network"}
+
+	for _, name := range names {
+		k.Register(&mockSubsystem{
+			name:      name,
+			stopOrder: &order,
+		})
+	}
+
+	k.Initialize()
+	k.Start()
+
+	if err := k.Shutdown(); err != nil {
+		t.Fatal(err)
+	}
+
+	expected := []string{"network", "storage", "console"}
+
+	for i, name := range expected {
+		if order[i] != name {
+			t.Fatalf("shutdown order[%d] = %s, want %s",
+				 i, order[i], name)
+		}
+	}
+}
+
+func TestShutdownBeforeStart(t *testing.T) {
+	k := New()
+	k.Initialize()
+
+	err := k.Shutdown()
+
+	if !errors.Is(err, ErrInvalidState) {
+		t.Fatalf("Shutdown() error = %v, want %v",
+			 err, ErrInvalidState)
+	}
+}
+
+func TestShutdownContinuesAfterFailure(t *testing.T) {
+	k := New()
+
+	var order []string
+
+	subsystems := []*mockSubsystem{
+		{name: "console", stopOrder: &order},
+		{name: "storage", stopFailed: true, stopOrder: &order},
+		{name: "network", stopOrder: &order},
+	}
+
+	for _, subsystem := range subsystems {
+		k.Register(subsystem)
+	}
+
+	k.Initialize()
+	k.Start()
+
+	err := k.Shutdown()
+
+	if err == nil {
+		t.Fatal("Shutdown() expected an error")
+	}
+
+	if len(order) != 3 {
+		t.Fatalf("stopped %d subsystems, want 3", len(order))
+	}
+
+	if got := k.State(); got != StateFailed {
+		t.Fatalf("State() = %v, want %v", got, StateFailed)
+	}
+}
+
+func TestShutdownPreservesMultipleErrors(t *testing.T) {
+	k := New()
+
+	k.Register(&mockSubsystem{
+		name:       "console",
+		stopFailed: true,
+	})
+
+	k.Register(&mockSubsystem{
+		name:       "storage",
+		stopFailed: true,
+	})
+
+	k.Initialize()
+	k.Start()
+
+	err := k.Shutdown()
+
+	if err == nil {
+		t.Fatal("Shutdown() expected an error")
+	}
+
+	if !strings.Contains(err.Error(), "console") {
+		t.Error("shutdown error should contain console")
+	}
+
+	if !strings.Contains(err.Error(), "storage") {
+		t.Error("shutdown error should contain storage")
+	}
 }

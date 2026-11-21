@@ -126,3 +126,47 @@ func (k *Kernel) Start() error {
 
 	return nil
 }
+
+// Shutdown gracefully stops all registered subsystems
+func (k *Kernel) Shutdown() error {
+	k.mu.Lock()
+
+	if k.state != StateRunning {
+		k.mu.Unlock()
+		return ErrInvalidState
+	}
+
+	subsystems := append([]Subsystem(nil), k.subsystems...)
+	k.mu.Unlock()
+
+	var shutdownErr error
+
+	for i := len(subsystems) - 1; i >= 0; i-- {
+		stopper, ok := subsystems[i].(Stopper)
+		if !ok {
+			continue
+		}
+
+		if err := stopper.Stop(); err != nil {
+			shutdownErr = errors.Join(
+				shutdownErr,
+			     fmt.Errorf(
+				     "failed to stop subsystem %s: %w",
+		   subsystems[i].Name(),
+					err,
+			     ),
+			)
+		}
+	}
+
+	k.mu.Lock()
+	defer k.mu.Unlock()
+
+	if shutdownErr != nil {
+		k.state = StateFailed
+		return shutdownErr
+	}
+
+	k.state = StateStopped
+	return nil
+}
