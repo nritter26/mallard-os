@@ -32,7 +32,7 @@ func (k *Kernel) State() State {
 	return k.state
 }
 
-// Register adds a subsystem to the kernel
+//Register adds a subsystem to the kernel
 func (k *Kernel) Register(subsystem Subsystem) error {
 	k.mu.Lock()
 	defer k.mu.Unlock()
@@ -56,7 +56,7 @@ func (k *Kernel) Register(subsystem Subsystem) error {
 	return nil
 }
 
-// Initialize initializes all registered subsystems
+//Initialize initializes all registered subsystems
 func (k *Kernel) Initialize() error {
 	k.mu.Lock()
 
@@ -87,7 +87,7 @@ func (k *Kernel) Initialize() error {
 	return nil
 }
 
-// Start activates registered subsystems
+//Start activates registered subsystems
 func (k *Kernel) Start() error {
 	k.mu.Lock()
 
@@ -127,7 +127,7 @@ func (k *Kernel) Start() error {
 	return nil
 }
 
-// Shutdown gracefully stops all registered subsystems
+//Shutdown gracefully stops all registered subsystems
 func (k *Kernel) Shutdown() error {
 	k.mu.Lock()
 
@@ -135,6 +135,9 @@ func (k *Kernel) Shutdown() error {
 		k.mu.Unlock()
 		return ErrInvalidState
 	}
+
+	// Reserve shutdown before releasing the mutex
+	k.state = StateStopping
 
 	subsystems := append([]Subsystem(nil), k.subsystems...)
 	k.mu.Unlock()

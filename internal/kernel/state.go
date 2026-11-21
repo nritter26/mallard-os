@@ -8,6 +8,7 @@ const (
 	StateReady
 	StateStarting
 	StateRunning
+	StateStopping
 	StateStopped
 	StateFailed
 )
@@ -24,6 +25,8 @@ func (s State) String() string {
 			return "starting"
 		case StateRunning:
 			return "running"
+		case StateStopping:
+			return "stopping"
 		case StateStopped:
 			return "stopped"
 		case StateFailed:

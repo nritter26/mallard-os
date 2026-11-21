@@ -4,6 +4,9 @@ import (
 	"errors"
 	"testing"
 	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
 )
 
 func TestNewKernelStartsUninitialized(t *testing.T) {
@@ -268,60 +271,6 @@ func TestInitializationStopsOnFailure(t *testing.T) {
 	}
 }
 
-type mockSubsystem struct {
-	name        string
-	failed      bool
-	startFailed bool
-	initialized bool
-	startCalled bool
-	order *[]string
-	stopFailed bool
-	stopCalled bool
-	stopOrder *[]string
-}
-
-func (m *mockSubsystem) Name() string {
-	return m.name
-}
-
-func (m *mockSubsystem) Init() error {
-	m.initialized = true
-
-	if m.order != nil {
-		*m.order = append(*m.order, m.name)
-	}
-
-	if m.failed {
-		return errors.New("subsystem initialization failed")
-	}
-
-	return nil
-}
-
-func (m *mockSubsystem) Start() error {
-	m.startCalled = true
-
-	if m.startFailed {
-		return errors.New("subsystem startup failed")
-	}
-
-	return nil
-}
-
-func (m *mockSubsystem) Stop() error {
-	m.stopCalled = true
-
-	if m.stopOrder != nil {
-		*m.stopOrder = append(*m.stopOrder, m.name)
-	}
-
-	if m.stopFailed {
-		return errors.New("subsystem shutdown failed")
-	}
-
-	return nil
-}
-
 func TestShutdownTransitionsToStopped(t *testing.T) {
 	k := New()
 
@@ -442,5 +391,156 @@ func TestShutdownPreservesMultipleErrors(t *testing.T) {
 
 	if !strings.Contains(err.Error(), "storage") {
 		t.Error("shutdown error should contain storage")
+	}
+}
+
+type mockSubsystem struct {
+	name        string
+	failed      bool
+	startFailed bool
+	initialized bool
+	startCalled bool
+	order *[]string
+	stopFailed bool
+	stopCalled bool
+	stopOrder *[]string
+}
+
+func (m *mockSubsystem) Name() string {
+	return m.name
+}
+
+func (m *mockSubsystem) Init() error {
+	m.initialized = true
+
+	if m.order != nil {
+		*m.order = append(*m.order, m.name)
+	}
+
+	if m.failed {
+		return errors.New("subsystem initialization failed")
+	}
+
+	return nil
+}
+
+func (m *mockSubsystem) Start() error {
+	m.startCalled = true
+
+	if m.startFailed {
+		return errors.New("subsystem startup failed")
+	}
+
+	return nil
+}
+
+func (m *mockSubsystem) Stop() error {
+	m.stopCalled = true
+
+	if m.stopOrder != nil {
+		*m.stopOrder = append(*m.stopOrder, m.name)
+	}
+
+	if m.stopFailed {
+		return errors.New("subsystem shutdown failed")
+	}
+
+	return nil
+}
+
+type blockingSubsystem struct {
+	stopCalls atomic.Int32
+	entered chan struct{}
+	release chan struct{}
+	once sync.Once
+}
+
+func (b *blockingSubsystem) Name() string {
+	return "blocking0"
+}
+
+func (b *blockingSubsystem) Init() error {
+	return nil
+}
+
+func (b *blockingSubsystem) Start() error {
+	return nil
+}
+
+func (b *blockingSubsystem) Stop() error {
+	b.stopCalls.Add(1)
+
+	b.once.Do(func() {
+		close(b.entered)
+	})
+
+	<-b.release
+
+	return nil
+}
+
+func TestConcurrentShutdown(t *testing.T) {
+	k := New()
+
+	subsystem := &blockingSubsystem{
+		entered: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+
+	if err := k.Register(subsystem); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := k.Initialize(); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := k.Start(); err != nil {
+		t.Fatal(err)
+	}
+
+	firstDone := make(chan error, 1)
+	secondDone := make(chan error, 1)
+
+	go func() {
+		firstDone <- k.Shutdown()
+	}()
+
+	// Wait until the first shutdown reaches Stop()
+	select {
+		case <-subsystem.entered:
+		case <-time.After(time.Second):
+			t.Fatal("first shutdown did not reach Stop()")
+	}
+
+	// Attempt a second shutdown while the first is blocked
+	go func() {
+		secondDone <- k.Shutdown()
+	}()
+
+	var secondErr error
+
+	select {
+		case secondErr = <-secondDone:
+		case <-time.After(time.Second):
+			close(subsystem.release)
+			<-firstDone
+			<-secondDone
+			t.Fatal("second shutdown did not return")
+	}
+
+	close(subsystem.release)
+
+	if err := <-firstDone; err != nil {
+		t.Fatalf("first Shutdown() error = %v", err)
+	}
+
+	if !errors.Is(secondErr, ErrInvalidState) {
+		t.Fatalf("second Shutdown() error = %v, want %v",
+			 secondErr, ErrInvalidState)
+	}
+
+	if got := subsystem.stopCalls.Load(); got != 1 {
+		t.Fatalf("Stop() called %d times, want 1", got)
 	}
 }
