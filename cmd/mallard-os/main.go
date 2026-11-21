@@ -11,6 +11,7 @@ import (
 	"mallard-os/internal/hal"
 	"mallard-os/internal/logger"
 	"mallard-os/internal/shell"
+	"mallard-os/internal/device"
 )
 
 func main() {
@@ -38,16 +39,25 @@ func main() {
 			   hal.PinOutput,
 	)
 
-	// Register devices with HAL
-	hardware := hal.NewManager(
-		usbConsole,
-		led,
-	)
+	// Register hardware devices with Device Manager
+	deviceManager := device.NewManager()
+
+	if err := deviceManager.Register(
+		device.NewUSBConsoleAdapter(usbConsole, true),
+	); err != nil {
+		panic(err)
+	}
+
+	if err := deviceManager.Register(
+		device.NewGPIOAdapter(led, true),
+	); err != nil {
+		panic(err)
+	}
 
 	// Initialize Mallard-OS kernel
 	mallardKernel := kernel.New()
 
-	if err := mallardKernel.Register(hardware); err != nil {
+	if err := mallardKernel.Register(deviceManager); err != nil {
 		log.Log(logger.ERROR, "Kernel registration failed: "+err.Error())
 		for {
 			time.Sleep(time.Second)

@@ -300,3 +300,18 @@ func (m *Manager) FindByCapability(capability Capability) []Device {
 
 	return matches
 }
+
+//Name identifies the Device Manager as a kernel subsystem
+func (m *Manager) Name() string {
+	return "Device Manager"
+}
+
+//Init initializes all registered devices
+func (m *Manager) Init() error {
+	return m.Initialize()
+}
+
+//Stop gracefully shuts down initialized devices
+func (m *Manager) Stop() error {
+	return m.Shutdown()
+}
