@@ -1,399 +1,516 @@
-# Mallard-OS v0.1
+# 🦆 Mallard-OS
 
-*TinyGo-first embedded operating environment for the Seeed XIAO ESP32-S3 (N16R8). Status: Work in Progress.*
+### One OS. Multiple Platforms. Go-First by Design.
 
----
+**Mallard-OS** is a portable, modular, Go-first embedded operating environment designed for microcontrollers and future hosted embedded-computing platforms.
 
-## 1. Goals
+Built primarily with Go and TinyGo, Mallard-OS aims to provide a consistent operating environment across different hardware architectures through hardware abstraction, capability-driven device management, modular subsystems, and platform-independent APIs.
 
-Mallard-OS aims to become a lightweight embedded operating environment with:
+The project currently targets the **ESP32-S3**, with ESP32-C3 compatibility as the next development objective.
 
-- Interactive terminal over USB Serial/JTAG.
-- Command interpreter with command registration and dispatch.
-- Persistent filesystem.
-- Task (goroutine) management and a service supervisor.
-- Hardware abstraction layer (HAL).
-- GPIO, PWM, ADC and I²C management.
-- Basic networking (Wi-Fi, HTTP).
-- Eventually, an application management system.
+> One OS. Multiple platforms. Modular by design. Go-first by default.
 
-The objective is to build an operating environment using Go as the primary development language while retaining access to lower-level hardware capabilities when necessary.
+**Status:** Work in Progress  
+**Current milestone:** v0.3 — Device Manager  
+**Primary language:** Go  
+**Initial runtime:** TinyGo 0.44.0
 
 ---
 
-## 2. Language Strategy
+## ✨ Vision
 
-| Language | Role |
+Mallard-OS is an attempt to build an embedded operating environment using Go as its primary language.
+
+Rather than building software around a particular development board, Mallard-OS is designed around hardware capabilities.
+
+The objective is to allow applications and system services to interact with hardware through consistent Go APIs without depending directly on board-specific implementations.
+
+### Core objectives
+
+- **Portability:** Support multiple microcontroller architectures and eventually hosted platforms.
+- **Modularity:** Keep system components independent and replaceable.
+- **Hardware abstraction:** Provide consistent interfaces for different peripherals and devices.
+- **Capability-driven design:** Allow hardware features to be optional rather than mandatory.
+- **Go-first development:** Keep Go as the primary language for system and application development.
+- **Resource awareness:** Account for limited CPU, memory, storage, and power.
+- **Testability:** Develop and test hardware-independent components on a host machine.
+- **Extensibility:** Allow new platforms and drivers without rewriting the OS core.
+
+---
+
+## 🖥️ Platform Support
+
+Mallard-OS is designed to support multiple hardware platforms over time.
+
+### Current development targets
+
+| Platform | Architecture | Status |
+|---|---|---|
+| Seeed XIAO ESP32-S3 N16R8 | Xtensa LX7 | 🟢 Current target |
+| ESP32-C3 | RISC-V | 🟡 Next target |
+| ESP32 | Xtensa LX6 | 🔵 Planned |
+
+### Future platforms
+
+| Platform | Architecture | Priority |
+|---|---|---|
+| Raspberry Pi Pico | ARM Cortex-M0+ | Future |
+| Raspberry Pi Pico 2 | ARM / RISC-V | Future |
+| STM32 | ARM Cortex-M | Future |
+| Raspberry Pi SBC | ARM Cortex-A | Long-term |
+| Orange Pi SBC | ARM variants | Long-term |
+
+### Execution profiles
+
+Two execution profiles are envisioned:
+
+**Embedded Profile**
+- Runs directly on supported hardware.
+- Uses an embedded Go runtime such as TinyGo.
+- Provides hardware access through platform implementations.
+- Optimized for constrained resources.
+
+**Hosted Profile**
+- Runs as a process on a supported host operating system, initially Linux.
+- Intended for SBCs, development, testing, and potentially application-class hardware.
+- Shares hardware-independent APIs and system logic where practical.
+
+Hosted execution is a future architectural direction, not a current supported feature.
+
+---
+
+## 🏗️ Architecture
+
+Mallard-OS follows a layered architecture that separates applications, operating-system functionality, hardware interfaces, drivers, and physical hardware.
+
+```text
+                 APPLICATIONS
+                      |
+                  SHELL / CLI
+                      |
+                 OS SUBSYSTEMS
+                      |
+          +-----------+-----------+
+          |           |           |
+        Storage    Services    Runtime
+          |           |           |
+          +-----------+-----------+
+                      |
+                DEVICE MANAGER
+                      |
+                     HAL
+                      |
+                   DRIVERS
+                      |
+                   PLATFORM
+                      |
+              PHYSICAL HARDWARE
+```
+
+### Architectural layers
+
+| Layer | Responsibility |
 |---|---|
-| Go (TinyGo) | Primary: shell, services, HAL, drivers, networking and supervisor |
-| C | Gap-filler only, behind HAL interfaces |
-| Python | Host-side serial client, test harness, build and flash scripts |
+| Applications | User-facing applications built for Mallard-OS |
+| OS Subsystems | Storage, networking, logging, monitoring and services |
+| Device Manager | Device registration, lifecycle and capability discovery |
+| HAL | Hardware-independent interfaces |
+| Drivers | Peripheral and device implementations |
+| Platform | Board-specific initialization and hardware integration |
+| Runtime | Go runtime and platform execution facilities |
 
-Everything that touches C should sit behind a small Go interface (`Storage`, `Crypto`, `Power`).
+### Core design principle
 
-A C implementation should be replaceable with a Go implementation later without requiring changes to the shell or services.
+Hardware-dependent implementations should remain behind stable interfaces.
+
+For example, an application requesting GPIO functionality should not need to know whether the underlying implementation uses an ESP32 GPIO peripheral, an STM32 GPIO controller, or another supported platform.
 
 ---
 
-## 3. Stack
+## 🧩 Technology Stack
 
 | Technology | Responsibility | Status |
 |---|---|---|
-| TinyGo 0.44.0 | Compiler and embedded runtime | Working |
-| `cores` scheduler | Goroutines on both LX7 cores, with core affinity | Untested |
-| espradio | Wi-Fi and Bluetooth, radio on core 0 | Planned |
-| lneto | Network stack used by espradio | Planned |
-| tinyfs (LittleFS) | Filesystem, C library wrapped for Go | Untested |
-| `machine` package + TinyGo drivers | GPIO, PWM, ADC, I²C and SPI | Partially implemented |
-| USB Serial/JTAG | Terminal communication | Verified |
-| Firmware flashing scripts | Build and flash workflow | Working |
+| Go | Primary development language | Active |
+| TinyGo 0.44.0 | Embedded compiler and runtime | Working |
+| ESP32-S3 | Initial hardware platform | Working |
+| USB Serial/JTAG | Interactive terminal communication | Verified |
+| TinyGo `machine` | Hardware peripheral access | Partially implemented |
+| `cores` scheduler | Experimental multicore scheduling | Untested on hardware |
+| espradio | Wi-Fi and Bluetooth | Planned |
+| lneto | Networking stack | Planned |
+| LittleFS | Persistent filesystem | Untested |
+| C | Native platform integration | As needed |
+| Python | Host-side tools and automation | Active |
+
+Go remains the primary implementation language.
+
+C is reserved for platform or runtime capabilities that cannot reasonably be provided through Go/TinyGo.
+
+Python is intended for host-side tooling, testing, serial communication, and development automation.
 
 ---
 
-## 4. Architecture
+## ⚙️ Current Implementation
 
-Mallard-OS uses a layered architecture to separate hardware access, system services and user-facing functionality.
+Mallard-OS has progressed beyond the initial bootloader and terminal stage.
+
+The current implementation includes an interactive shell, command system, hardware abstraction foundation, runtime utilities, and a kernel lifecycle manager.
+
+### v0.1 — Boot and Console
+
+**Status: Complete**
+
+Implemented:
+
+- System boot sequence.
+- USB Serial/JTAG communication.
+- Interactive terminal.
+- Console abstraction.
+- Terminal input and output.
+- Character buffering.
+- Echo handling.
+- Backspace handling.
+- Enter key handling.
+
+### v0.2 — Interactive Shell
+
+**Status: Complete**
+
+Implemented:
+
+- Shell execution loop.
+- Command parser.
+- Command registry.
+- Command dispatch.
+- Command handler interface.
+- Argument handling.
+- Built-in commands.
+
+Current commands:
+
+| Command | Description |
+|---|---|
+| `help` | Display available commands |
+| `info` | Display Mallard-OS system information |
+| `uptime` | Display system uptime |
+| `meminfo` | Display runtime memory statistics |
+
+Example terminal session:
 
 ```text
-                    Mallard-OS
-                        |
-        +---------------+---------------+
-        |               |               |
-      Shell           Services      Applications
-        |               |               |
-   Command API       System API    Application API
-        |               |               |
-        +---------------+---------------+
-                        |
-             Hardware Abstraction (Go)
-                        |
-                TinyGo Runtime
-                        |
-                    ESP32-S3
+mallard>
+mallard> help
+
+Mallard-OS Commands:
+help - Display available commands
+info - Display Mallard-OS system information
+uptime - Display system uptime
+meminfo - Display runtime memory statistics
+
+mallard> info
+
+Mallard-OS v0.2
+Embedded Operating Environment
+Architecture: ESP32-S3
+Runtime: TinyGo
+
+mallard> uptime
+...
 ```
 
-### 4.1 Current software architecture
+### Kernel Foundation
+
+**Status: Implemented — ongoing development**
+
+The kernel package introduces a common lifecycle management foundation for Mallard-OS.
+
+Current functionality:
+
+- Kernel initialization.
+- Subsystem registration.
+- Duplicate subsystem protection.
+- Subsystem initialization ordering.
+- Subsystem startup.
+- Lifecycle state management.
+- Initialization and startup failure handling.
+- Graceful subsystem shutdown.
+- Reverse-order shutdown.
+- Multiple shutdown error aggregation.
+- Concurrent shutdown protection.
+
+Current lifecycle:
 
 ```text
-cmd/
-└── mallard-os/
-    └── main.go
+UNINITIALIZED
+      |
+      v
+ INITIALIZING
+      |
+      v
+    READY
+      |
+      v
+  STARTING
+      |
+      v
+   RUNNING
+      |
+      v
+  STOPPING
+      |
+      v
+   STOPPED
+```
 
-internal/
-├── boot/
-│   ├── boot.go
-│   └── boot_test.go
+Failure transitions:
+
+```text
+INITIALIZING ──> FAILED
+
+STARTING ──────> FAILED
+
+STOPPING ──────> FAILED
+```
+
+The kernel manages subsystem lifecycles without requiring individual subsystems to know about one another.
+
+Host-side tests verify lifecycle transitions, initialization ordering, failure handling, shutdown ordering, error aggregation, and concurrent shutdown behavior.
+
+### Hardware Abstraction Layer
+
+**Status: In Progress**
+
+Current foundations include:
+
+- GPIO interfaces.
+- Serial interfaces.
+- Machine-specific implementations.
+- Hardware manager foundation.
+
+The HAL is intended to become the primary boundary between OS functionality and hardware-specific implementations.
+
+### Runtime
+
+**Status: Implemented — ongoing development**
+
+Current functionality:
+
+- System startup time.
+- Uptime tracking.
+- Runtime memory statistics.
+- TinyGo `runtime.ReadMemStats()` integration.
+
+Memory statistics represent runtime heap information, not total physical SRAM, PSRAM, or flash capacity.
+
+---
+
+## 🗂️ Project Structure
+
+The repository is evolving toward a modular architecture.
+
+Current implementation:
+
+```text
+mallard-os/
 │
 ├── cmd/
-│   ├── command.go
-│   ├── help.go
-│   ├── info.go
-│   ├── meminfo.go
-│   └── uptime.go
+│   └── mallard-os/
+│       └── main.go
 │
-├── console/
-│   ├── console.go
-│   ├── line.go
-│   └── log.go
+├── internal/
+│   ├── boot/
+│   ├── cmd/
+│   ├── console/
+│   ├── drivers/
+│   ├── hal/
+│   ├── kernel/
+│   ├── logger/
+│   ├── runtime/
+│   └── shell/
 │
-├── drivers/
-│   └── ws2812/
-│       └── hardware-specific driver implementations
+├── docs/
 │
-├── hal/
-│   ├── gpio.go
-│   ├── gpio_machine.go
-│   ├── manager.go
-│   ├── serial.go
-│   └── serial_machine.go
+├── scripts/
 │
-├── logger/
-│   └── logger.go
-│
-├── runtime/
-│   └── runtime.go
-│
-├── shell/
-│   ├── parser.go
-│   ├── registry.go
-│   └── shell.go
-│
-└── svc/
-    └── (planned service supervisor implementation)
-
-Progress.md
-MallardOS.md
-README.md
+├── Progress.md
+├── MallardOS.md
+├── README.md
+└── go.mod
 ```
 
-### 4.2 Package responsibilities
+The long-term architecture separates:
 
-| Package | Responsibility | Status |
-|---|---|---|
-| `boot` | System initialization and boot sequence | Implemented |
-| `hal` | Hardware interfaces and device management | In progress |
-| `drivers` | Hardware-specific driver implementations | In progress |
-| `console` | Terminal transport abstraction, output and input handling | Implemented |
-| `logger` | System-level logging | Implemented |
-| `runtime` | Runtime utilities, uptime and memory statistics | Implemented |
-| `shell` | Command parsing, registration and execution | Implemented |
-| `cmd` | Built-in shell command handlers and registration | Implemented |
-| `svc` | Service lifecycle and supervision | Planned |
+- `api/` — stable public contracts.
+- `kernel/` — core operating-environment functionality.
+- `platform/` — hardware-specific implementations.
+- `drivers/` — peripheral and device drivers.
+- `subsystems/` — higher-level OS functionality.
+- `services/` — background services and supervision.
+- `apps/` — Mallard-OS applications.
+- `host/` — host-side development and testing tools.
 
-### 4.3 Console architecture
+The repository will migrate toward this structure incrementally.
 
-The console is deliberately separated from the hardware abstraction layer.
+Existing working components will not be rewritten simply to match a proposed directory layout.
+
+---
+
+## 🧠 Memory Architecture
+
+Memory management is an important part of the long-term design.
+
+Mallard-OS must support platforms with different memory configurations without exposing unnecessary hardware details to applications.
+
+Planned memory domains:
+
+| Memory | Intended use |
+|---|---|
+| Internal SRAM | Runtime, stacks and ordinary Go heap |
+| External PSRAM | Large buffers and bulk data |
+| DMA-capable memory | Peripheral DMA buffers |
+| Flash | Firmware and persistent storage |
+| External storage | Files and application data |
+
+TinyGo remains responsible for ordinary Go-managed memory and garbage collection.
+
+External memory allocation may eventually use native platform allocators behind Go interfaces.
+
+For ESP32-S3, ESP-IDF capability-based allocation APIs are being considered.
+
+However, PSRAM initialization, allocator integration, DMA compatibility, and TinyGo runtime constraints must be verified before implementation.
+
+**The objective is to provide Go-facing memory APIs without requiring application developers to write C.**
+
+---
+
+## 💾 Planned Storage Architecture
+
+Storage will be implemented independently of the underlying hardware.
+
+Conceptually:
 
 ```text
-             Terminal / Shell
-                    |
-                    v
-             Console Package
-                    |
-             Transport Interface
-                    |
-                    v
-                HAL Console
-                    |
-                    v
-              USB Serial/JTAG
+                 Storage API
+                      |
+                     VFS
+                      |
+               Storage Manager
+                      |
+          +-----------+-----------+
+          |           |           |
+        LittleFS     FAT32      Other FS
+          |           |           |
+          +-----------+-----------+
+                      |
+                 Block Device
+                      |
+          +-----------+-----------+
+          |           |           |
+         Flash        SD       Other Media
 ```
 
-Current console components:
+Potential capabilities:
 
-- `console.go`: Hardware-independent terminal input/output.
-- `log.go`: Human-readable terminal messages.
-- `line.go`: Character buffering, echo, Enter and Backspace handling.
+- Flash storage.
+- LittleFS.
+- FAT32.
+- MicroSD.
+- Virtual filesystem.
+- File and directory management.
 
-The HAL remains responsible for communicating with the underlying USB serial hardware.
+Persistent storage will remain optional. Mallard-OS must be able to boot and provide its core terminal functionality without an external storage device.
 
-This separation allows future console transports to be introduced without rewriting the terminal or shell.
+---
 
-### 4.4 Shell architecture
+## 🛣️ Roadmap
 
-The shell uses a command registry and a handler interface to keep command execution independent of the console implementation.
+Mallard-OS is developed incrementally, with each milestone introducing a new system capability.
 
-```text
-                 User Input
-                     |
-                     v
-                Line Editor
-                     |
-                     v
-                 Shell Loop
-                     |
-                     v
-                  Parser
-                     |
-                     v
-              Command Registry
-                     |
-                     v
-              Command Handler
-                     |
-                     v
-                CommandIO
-                     |
-                     v
-                  Console
+| Version | Milestone | Objective | Status |
+|---|---|---|---|
+| v0.1 | Boot | Hardware initialization and USB terminal | ✅ Complete |
+| v0.2 | Shell | Parser, registry, dispatch and built-in commands | ✅ Complete |
+| v0.3 | Device Manager | Device lifecycle and capability discovery | 🟡 Next |
+| v0.4 | Memory Manager | Memory-region APIs and statistics | 🔵 Planned |
+| v0.5 | Storage | Block-device abstraction and filesystem backend | 🔵 Planned |
+| v0.6 | VFS | Unified filesystem interface | 🔵 Planned |
+| v0.7 | Task Management | Task lifecycle and runtime integration | 🔵 Planned |
+| v0.8 | Services | Service lifecycle and supervision | 🔵 Planned |
+| v0.9 | Networking | Network interfaces and common APIs | 🔵 Planned |
+| v0.10 | Applications | Application-facing APIs and examples | 🔵 Planned |
+| v1.0 | Multi-platform Foundation | Validated ESP32-S3 and ESP32-C3 support | 🔵 Planned |
+
+Future milestones will investigate RP2040/RP2350, STM32, and hosted Linux support.
+
+### Current milestone: v0.3 — Device Manager
+
+The next development stage focuses on introducing a centralized device management system.
+
+Planned functionality:
+
+1. Device identity and lifecycle states.
+2. Required and optional device registration.
+3. Hardware capability registration.
+4. Capability discovery.
+5. Device initialization and error reporting.
+6. Integration with existing USB console and GPIO implementations.
+7. Shell commands for inspecting registered devices.
+
+Acceptance criteria:
+
+- Existing ESP32-S3 firmware continues to build and boot.
+- Existing shell commands remain functional.
+- USB console and GPIO devices can register through the new design.
+- Optional device failures do not prevent boot.
+- Required device failures follow an explicit boot-failure policy.
+- Registered devices and capabilities are visible through the shell.
+- Hardware-independent device manager logic has host-side tests.
+
+---
+
+## 🧪 Testing Strategy
+
+Mallard-OS uses a combination of host-side testing and physical hardware verification.
+
+### 1. Host-side unit testing
+
+Hardware-independent components are tested using Go's testing framework.
+
+Current focus:
+
+- Kernel lifecycle.
+- Subsystem registration.
+- Initialization and startup.
+- Shutdown ordering.
+- Error handling.
+- Concurrency.
+- Shell parsing.
+- Command registration and dispatch.
+
+Run tests:
+
+```bash
+go test ./...
 ```
 
-Each command provides:
+Run kernel tests:
 
-- A name.
-- A description.
-- A handler function.
+```bash
+go test ./internal/kernel/... -v
+```
 
-The handler receives a `CommandIO` interface and an argument slice.
+Run race detection:
 
-This keeps commands independent of the underlying serial hardware.
+```bash
+go test -race ./internal/kernel/...
+```
 
-Current built-in commands:
+### 2. Hardware testing
 
-| Command | Responsibility | Status |
-|---|---|---|
-| `help` | Display registered commands | Working |
-| `info` | Display Mallard-OS system information | Working |
-| `uptime` | Display elapsed system uptime | Working |
-| `meminfo` | Display TinyGo runtime memory statistics | Working |
+Hardware-dependent functionality must be verified on actual development boards.
 
-### 4.5 Runtime architecture
-
-The runtime package currently provides:
-
-- Startup time initialization.
-- System uptime.
-- TinyGo runtime memory statistics through `runtime.ReadMemStats()`.
-
-Memory statistics describe the runtime heap. They should not be treated as a measurement of total physical SRAM, PSRAM or flash capacity.
-
-Automatic garbage collection is provided by the TinyGo runtime. Manual garbage collection is not currently exposed through the shell.
-
-### 4.6 Core split (experimental plan)
-
-The initial multicore design proposes:
-
-- Core 0: Radio operations.
-- Core 1: Shell and system services.
-
-Goroutine core affinity will be handled through the `cores` scheduler.
-
-This architecture remains experimental until the dual-core hardware test is completed.
-
----
-
-## 5. C Gaps and Risks
-
-C is reserved for capabilities that cannot reasonably be implemented or accessed through TinyGo.
-
-Everything exposed through C should be wrapped behind Go interfaces.
-
-| Area | Why C may be needed | Status |
-|---|---|---|
-| LittleFS | tinyfs wraps the C LittleFS library; requires an S3 flash `BlockDevice` | Untested |
-| PSRAM (8 MB) | TinyGo initialization and allocation support need verification | Untested |
-| USB Serial/JTAG | Current hardware communication works; alternative USB support remains to be investigated | Verified for current transport |
-| TLS / HTTPS | Pure-Go TLS compatibility with lneto needs investigation; mbedTLS is a fallback | Untested |
-| Hardware crypto | Go crypto may use software unless hardware acceleration is available | Untested |
-| OTA and partition table | ESP-IDF handles these capabilities in C; TinyGo behavior needs verification | Untested |
-| Sleep / low power / ULP | May require ESP-IDF C APIs | Untested |
-| Other peripherals (I²S, RMT, LCD, camera) | Support may require C implementations | Untested |
-
-### Experiment order
-
-1. USB Serial/JTAG console — completed.
-2. Dual-core runtime and synchronization — next.
-3. LittleFS over flash `BlockDevice`.
-4. PSRAM allocation.
-5. TLS client connection.
-6. Panic recovery under the `cores` scheduler.
-
----
-
-## 6. Known Design Constraints
-
-### Scheduling
-
-The scheduler must be evaluated on the actual ESP32-S3.
-
-Services must yield, block on channels or otherwise avoid starving other work.
-
-Tight loops must not monopolize execution.
-
-### TinyGo runtime
-
-TinyGo supports only part of the standard Go library.
-
-Avoid reflection-heavy packages and unnecessary runtime dependencies.
-
-Binary size and memory consumption must be measured on the target hardware.
-
-### Multicore synchronization
-
-Shared state across cores requires appropriate synchronization using mutexes, channels or other verified mechanisms.
-
-Do not assume goroutine core affinity works until experimentally confirmed.
-
-### Panic recovery
-
-Recoverable panics are intended to form the basis for supervised service restarts.
-
-The behavior of `recover` must be verified under the selected multicore scheduler.
-
-### Memory management
-
-The N16R8 board provides external PSRAM, but its availability to TinyGo must be verified.
-
-Do not assume all memory regions are automatically available through normal Go allocation.
-
-TinyGo runtime heap statistics are available through `meminfo`, but they do not independently establish total physical memory capacity.
-
----
-
-## 7. Non-Goals (v1.0)
-
-- No MMU.
-- No process isolation.
-- No dynamic loading.
-- No Linux compatibility.
-- No on-device second runtime such as MicroPython unless deliberately introduced in v0.7.
-
-Mallard-OS is an embedded operating environment, not a Linux replacement.
-
----
-
-## 8. Roadmap
-
-| Version | Deliverable | Status |
-|---|---|---|
-| v0.1 | Boot sequence + interactive USB terminal | Complete |
-| v0.2 | Shell loop, command parser, registry and built-in commands | Complete |
-| v0.3 | Filesystem + configuration storage (`ls`, `mkdir`) | Planned |
-| v0.4 | Task manager + system monitoring (`ps`, with core shown) | Planned |
-| v0.5 | Hardware management services (`gpio list`) | Planned |
-| v0.6 | Wi-Fi + HTTP server (`wifi scan`) | Planned |
-| v0.7 | Application management | Planned |
-| v1.0 | First usable Mallard-OS release | Planned |
-
-### v0.1 completion criteria
-
-- [x] Boot sequence.
-- [x] HAL initialization.
-- [x] USB Serial/JTAG communication.
-- [x] Terminal input/output.
-- [x] Line editing.
-
-### v0.2 completion criteria
-
-- [x] Shell command loop.
-- [x] Command parsing and dispatch.
-- [x] Command registry.
-- [x] `help`.
-- [x] `info`.
-- [x] `uptime`.
-- [x] `meminfo`.
-
----
-
-## 9. Target Commands by Version
-
-| Command | Version | Purpose |
-|---|---|---|
-| `help` | v0.2 | Display available commands |
-| `info` | v0.2 | Display system and hardware information |
-| `uptime` | v0.2 | Display system uptime |
-| `meminfo` | v0.2 | Display runtime memory statistics |
-| `ls` | v0.3 | List filesystem contents |
-| `mkdir projects` | v0.3 | Create directories |
-| `cat` | v0.3 | Read file contents |
-| `write` | v0.3 | Create or write files |
-| `ps` | v0.4 | Display running tasks and core information |
-| `gpio list` | v0.5 | List available GPIO resources |
-| `wifi scan` | v0.6 | Scan available Wi-Fi networks |
-
----
-
-## 10. Testing Approach
-
-Mallard-OS uses three testing levels.
-
-### 10.1 Host-side unit tests
-
-Use Go unit tests where the code is compatible with the host Go runtime.
-
-Priorities:
-
-- Shell parser.
-- Command registry.
-- Command argument handling.
-- Configuration parsing.
-- Service lifecycle logic.
-
-### 10.2 Hardware testing
-
-All hardware-dependent features must be verified on the Seeed XIAO ESP32-S3 N16R8.
-
-Examples:
+Testing priorities:
 
 - USB Serial/JTAG.
 - GPIO.
@@ -403,72 +520,150 @@ Examples:
 - Wi-Fi.
 - TLS.
 
-### 10.3 Python serial test harness
+### 3. Host-side automation
 
-Python will provide host-side automation for:
+Python tooling will provide:
 
-- Connecting to the serial interface.
-- Sending shell commands.
-- Capturing terminal output.
-- Checking expected responses.
-- Running repeatable hardware smoke tests.
-
----
-
-## 11. First Experiment — Multicore Runtime
-
-### Objective
-
-Verify that TinyGo can execute goroutines on both ESP32-S3 LX7 cores using the selected `cores` scheduler.
-
-### Test design
-
-Create two goroutines:
-
-**Worker 1**
-- Pinned to core 0.
-- Toggles a GPIO.
-- Increments a shared counter.
-
-**Worker 2**
-- Pinned to core 1.
-- Toggles another GPIO.
-- Reads the shared counter.
-
-Protect shared state using a mutex.
-
-Both workers should periodically report their activity over USB serial.
-
-### Success criteria
-
-- Both workers execute.
-- Core affinity behaves as expected.
-- Both GPIOs toggle independently.
-- Shared counter remains consistent.
-- No deadlocks.
-- No unexplained crashes or watchdog resets.
-- USB serial remains responsive.
-
-### Result
-
-Pending physical hardware testing.
+- Serial connection management.
+- Shell command execution.
+- Terminal output capture.
+- Expected-response validation.
+- Repeatable hardware smoke tests.
 
 ---
 
-## 12. Development Philosophy
+## 🔬 Experimental Work
+
+### ESP32-S3 Dual-Core Runtime
+
+The ESP32-S3 contains two Xtensa LX7 cores.
+
+Mallard-OS plans to investigate dual-core execution using TinyGo's `cores` scheduler.
+
+Proposed architecture:
+
+| Core | Intended responsibility |
+|---|---|
+| Core 0 | Radio and selected hardware operations |
+| Core 1 | Shell and system services |
+
+This is an experimental allocation, not a fixed architectural requirement.
+
+The implementation must verify:
+
+- Goroutine execution on both cores.
+- Core affinity.
+- Shared-state synchronization.
+- GPIO activity.
+- Watchdog behavior.
+- USB serial responsiveness.
+
+No multicore behavior will be considered verified until tested on physical hardware.
+
+---
+
+## 🎯 Design Principles
 
 Mallard-OS follows these principles:
 
-1. Go first, C only when necessary.
-2. Hardware access stays behind HAL interfaces.
-3. Keep components modular and independently testable.
-4. Prefer small dependencies and predictable memory usage.
-5. Verify runtime assumptions on physical hardware.
-6. Separate system logging from interactive terminal output.
-7. Build incrementally, validating each subsystem before moving forward.
+1. **Go first, C when necessary.** Native code should remain an implementation detail.
+2. **Hardware independence.** Applications should depend on stable interfaces rather than specific boards.
+3. **Capability-driven design.** Optional hardware should not become a mandatory boot dependency.
+4. **Modularity.** Components should have clearly defined responsibilities.
+5. **Explicit ownership.** Native allocations and hardware resources must have clear lifecycles.
+6. **Resource awareness.** Memory, CPU, storage, and power constraints matter.
+7. **Runtime awareness.** Reuse existing Go and TinyGo facilities where practical.
+8. **Testability.** Hardware-independent functionality should be testable without physical devices.
+9. **Incremental development.** Preserve working functionality and avoid unnecessary rewrites.
+10. **Reliability.** Hardware failures should be isolated wherever possible.
+
+---
+
+## 🚫 Non-Goals
+
+Mallard-OS is an embedded operating environment, not a replacement for Linux.
+
+The initial project does not aim to provide:
+
+- Memory Management Unit (MMU).
+- Process isolation.
+- Dynamic application loading.
+- Linux compatibility.
+- A replacement Go garbage collector.
+- A second on-device language runtime.
+- Identical hardware capabilities across every platform.
+
+These areas may be reconsidered as the project evolves.
+
+---
+
+## 🤝 Development Philosophy
+
+Mallard-OS is developed as an incremental engineering project.
+
+The priority is to understand and implement the underlying operating-system concepts rather than simply assemble existing libraries into firmware.
+
+Each subsystem should have:
+
+- A clear responsibility.
+- Defined interfaces.
+- Explicit lifecycle behavior.
+- Appropriate error handling.
+- Tests where practical.
+- Hardware verification when required.
+
+Architectural decisions should be introduced when they solve actual problems, not simply because a future directory structure suggests them.
+
+---
+
+## 📌 Project Status
+
+**Current development focus:** Kernel foundation and Device Manager architecture.
+
+| Component | Status |
+|---|---|
+| ESP32-S3 boot | ✅ Complete |
+| USB Serial/JTAG terminal | ✅ Complete |
+| Interactive shell | ✅ Complete |
+| Command parser | ✅ Complete |
+| Command registry | ✅ Complete |
+| Built-in commands | ✅ Complete |
+| HAL foundation | 🟡 In Progress |
+| GPIO | 🟡 In Progress |
+| Kernel lifecycle | 🟡 In Progress |
+| Lifecycle concurrency tests | ✅ Passing |
+| Device Manager | 🔵 Next |
+| Memory Manager | 🔵 Planned |
+| Persistent filesystem | 🔵 Planned |
+| Task management | 🔵 Planned |
+| Service supervision | 🔵 Planned |
+| Networking | 🔵 Planned |
+| Multi-platform support | 🔵 Planned |
+
+---
+
+## 📖 Documentation
+
+Project documentation and implementation notes:
+
+- `MallardOS.md` — Project overview and current implementation notes.
+- `Progress.md` — Development progress and completed work.
+- `docs/` — Architecture, implementation decisions, and development documentation.
+
+The architecture document describes the intended long-term direction. It should not be interpreted as a claim that every proposed subsystem is already implemented.
+
+---
+
+## 🦆 Final Thoughts
+
+Mallard-OS is an exploration of what a small, modular, Go-first operating environment can become.
+
+Starting with an ESP32-S3, the project aims to grow into a portable foundation for different microcontrollers and eventually hosted embedded-computing platforms.
 
 The goal is not simply to run Go applications on an ESP32.
 
-The goal is to build a small, modular embedded operating environment with its own terminal, shell, services, hardware management and application architecture.
+**The goal is to build an operating environment with its own kernel foundation, device management, hardware abstraction, runtime integration, services, terminal, and application architecture.**
 
-**Mallard-OS — An OS with a duck going one step at a time.**
+### One OS. Multiple Platforms. Go-First by Design.
+
+*Built one step at a time. 🦆*
