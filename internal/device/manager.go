@@ -8,7 +8,7 @@ import (
 var (
 	ErrNilDevice = errors.New("device cannot be nil")
 	ErrEmptyDeviceName = errors.New("device name cannot be empty")
-	ErrDuplicatedDevice = errors.New("device already registered")
+	ErrDuplicateDevice = errors.New("device already registered")
 
 )
 
@@ -40,11 +40,11 @@ func (m *Manager) Register(dev Device) error {
 	defer m.mu.Unlock()
 
 	if _, exists := m.devices[name]; exists {
-		return ErrDuplicatedDevice
+		return ErrDuplicateDevice
 	}
 
 	m.devices[name] = dev
-	m.states[name] = StateUnintitialized
+	m.states[name] = StateUninitialized
 
 	return nil
 }
