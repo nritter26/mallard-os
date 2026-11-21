@@ -1,3 +1,8 @@
+<p align="center">
+  <img src="banner.png" alt="Mallard-OS Banner" width="100%" />
+</p>
+
+
 # 🦆 Mallard-OS
 
 ### One OS. Multiple Platforms. Go-First by Design.
