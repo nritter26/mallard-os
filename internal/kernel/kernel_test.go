@@ -132,6 +132,45 @@ func TestInitializationFailure(t *testing.T) {
 	}
 }
 
+func TestSubsystemInitializationOrder(t *testing.T) {
+	k := New()
+
+	var order []string
+
+	subsystems := []string{
+		"console",
+		"storage",
+		"network",
+	}
+
+	for _, name := range subsystems {
+		subsystem := &mockSubsystem{
+			name:  name,
+			order: &order,
+		}
+
+		if err := k.Register(subsystem); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := k.Initialize(); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(order) != len(subsystems) {
+		t.Fatalf("initialized %d subsystems, want %d",
+			 len(order), len(subsystems))
+	}
+
+	for i, name := range subsystems {
+		if order[i] != name {
+			t.Fatalf("initialization order[%d] = %s, want %s",
+				 i, order[i], name)
+		}
+	}
+}
+
 func TestSubsystemStart(t *testing.T) {
 	k := New()
 
@@ -179,6 +218,7 @@ type mockSubsystem struct {
 	startFailed bool
 	initialized bool
 	startCalled bool
+	order *[]string
 }
 
 func (m *mockSubsystem) Name() string {
@@ -187,6 +227,10 @@ func (m *mockSubsystem) Name() string {
 
 func (m *mockSubsystem) Init() error {
 	m.initialized = true
+
+	if m.order != nil {
+		*m.order = append(*m.order, m.name)
+	}
 
 	if m.failed {
 		return errors.New("subsystem initialization failed")
