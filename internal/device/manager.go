@@ -248,3 +248,55 @@ func (m *Manager) State(name string) (State, bool) {
 	state, exists := m.states[name]
 	return state, exists
 }
+
+func (m *Manager) HasCapability(capability Capability) bool {
+	m.mu.RLock()
+	devices := make([]Device, 0, len(m.devices))
+
+	for _, name := range m.order {
+		devices = append(devices, m.devices[name])
+	}
+	m.mu.RUnlock()
+
+	for _, dev := range devices {
+		provider, ok := dev.(CapabilityProvider)
+		if !ok {
+			continue
+		}
+		for _, c := range provider.Capabilities() {
+			if c == capability {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func (m *Manager) FindByCapability(capability Capability) []Device {
+	m.mu.RLock()
+	devices := make([]Device, 0, len(m.devices))
+
+	for _, name := range m.order {
+		devices = append(devices, m.devices[name])
+	}
+	m.mu.RUnlock()
+
+	var matches []Device
+
+	for _, dev := range devices {
+		provider, ok := dev.(CapabilityProvider)
+		if !ok {
+			continue
+		}
+
+		for _, c := range provider.Capabilities() {
+			if c == capability {
+				matches = append(matches, dev)
+				break
+			}
+		}
+	}
+
+	return matches
+}

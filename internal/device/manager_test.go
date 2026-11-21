@@ -544,3 +544,71 @@ func TestGetDeviceState(t *testing.T) {
 		t.Fatal("unknown device should not exist")
 	}
 }
+
+type capabilityTestDevice struct {
+	name string
+	capabilities []Capability
+}
+
+func(d *capabilityTestDevice) Name() string { return d.name }
+func(d *capabilityTestDevice) Type() Type { return TypeGPIO }
+func(d *capabilityTestDevice) Init() error { return nil }
+func(d *capabilityTestDevice) Required() bool { return false }
+
+func (d *capabilityTestDevice) Capabilities() []Capability {
+	return d.capabilities
+}
+
+func TestHasCapability(t *testing.T) {
+	manager := NewManager()
+
+	dev := &capabilityTestDevice{
+		name: "gpio0",
+		capabilities: []Capability{
+			CapabilityGPIO,
+			CapabilityPWM,
+		},
+	}
+
+	if err := manager.Register(dev); err != nil {
+		t.Fatal(err)
+	}
+
+	if !manager.HasCapability(CapabilityGPIO) {
+		t.Error("expected GPIO capability")
+	}
+
+	if !manager.HasCapability(CapabilityPWM) {
+		t.Error("expected PWM capability")
+	}
+
+	if manager.HasCapability(CapabilityWiFi) {
+		t.Error("unexpected WiFi capability")
+	}
+}
+
+func TestFindByCapability(t *testing.T) {
+	manager := NewManager()
+
+	devices := []*capabilityTestDevice{
+		{name: "gpio0", capabilities: []Capability{CapabilityGPIO, CapabilityPWM}},
+		{name: "gpio1", capabilities: []Capability{CapabilityGPIO}},
+		{name: "wifi0", capabilities: []Capability{CapabilityWiFi}},
+	}
+
+	for _, dev := range devices {
+		if err := manager.Register(dev); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	found := manager.FindByCapability(CapabilityGPIO)
+
+	if len(found) != 2 {
+		t.Fatalf("expected 2 GPIO devices, got %d", len(found))
+	}
+
+	if found[0].Name() != "gpio0" || found[1].Name() != "gpio1" {
+		t.Error("devices were not returned in registration order")
+	}
+}
