@@ -6,6 +6,7 @@ const (
 	StateUninitialized State = iota
 	StateInitializing
 	StateReady
+	StateStarting
 	StateRunning
 	StateStopped
 	StateFailed

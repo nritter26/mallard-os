@@ -5,5 +5,9 @@ func (s *Shell) Name() string {
 }
 
 func (s *Shell) Init() error {
-	return s.Start()
+	if s.terminal == nil || s.registry == nil {
+		return ErrShellNotInitialized
+	}
+
+	return nil
 }

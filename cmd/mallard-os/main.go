@@ -47,10 +47,25 @@ func main() {
 	// Initialize Mallard-OS kernel
 	mallardKernel := kernel.New()
 
-	// Register hardware subsystem
 	if err := mallardKernel.Register(hardware); err != nil {
-		log.Log(logger.ERROR, "Failed to register HAL: "+err.Error())
+		log.Log(logger.ERROR, "Kernel registration failed: "+err.Error())
+		for {
+			time.Sleep(time.Second)
+		}
+	}
 
+	registry := shell.NewRegistry()
+	if err := commands.Register(registry); err != nil {
+		log.Log(logger.ERROR, "Command registration failed: "+err.Error())
+		for {
+			time.Sleep(time.Second)
+		}
+	}
+
+	mallardShell := shell.NewShell(terminal, registry)
+
+	if err := mallardKernel.Register(mallardShell); err != nil {
+		log.Log(logger.ERROR, "Shell registration failed: "+err.Error())
 		for {
 			time.Sleep(time.Second)
 		}
@@ -97,29 +112,6 @@ func main() {
 	_ = terminalLog.Info("Mallard-OS starting...")
 	_ = terminalLog.Success("USB initialized")
 	_ = terminalLog.Warn("Running without persistent storage")
-
-	// Initialize shell command registry
-	registry := shell.NewRegistry()
-
-	// Register built-in commands
-	if err := commands.Register(registry); err != nil {
-		log.Log(logger.ERROR, "Failed to register built-in commands: "+err.Error())
-
-		for {
-			time.Sleep(time.Second)
-		}
-	}
-
-	// Initialize Mallard-OS shell
-	mallardShell := shell.NewShell(terminal, registry)
-
-	if err := mallardShell.Start(); err != nil {
-		log.Log(logger.ERROR, "Shell initialization failed: "+err.Error())
-
-		for {
-			time.Sleep(time.Second)
-		}
-	}
 
 	// Start kernel
 	if err := mallardKernel.Start(); err != nil {

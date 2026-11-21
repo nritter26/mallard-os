@@ -26,7 +26,7 @@ func NewShell(terminal *console.Console, registry *Registry) *Shell {
 	}
 }
 
-// Start initializes the shell and displays its welcome message
+// Start activates the shell and displays its welcome message
 func (s *Shell) Start() error {
 	if s.terminal == nil || s.editor == nil || s.registry == nil {
 		return ErrShellNotInitialized
@@ -36,8 +36,21 @@ func (s *Shell) Start() error {
 		return nil
 	}
 
-	if err := s.terminal.Println("MallardOS v0.1"); err != nil {
-		return err
+	banner := []string{
+		"       __",
+		"  ___( o)>",
+		"  \\ <_. )",
+		"   `---'",
+		"",
+		"  MALLARD-OS v0.1",
+		"  Embedded Operating Environment",
+		"",
+	}
+
+	for _, line := range banner {
+		if err := s.terminal.Println(line); err != nil {
+			return err
+		}
 	}
 
 	if err := s.terminal.Println("Type 'help' to see available commands."); err != nil {

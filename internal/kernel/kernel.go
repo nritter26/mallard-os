@@ -3,6 +3,7 @@ package kernel
 import (
 	"errors"
 	"sync"
+	"fmt"
 )
 
 var (
@@ -86,16 +87,42 @@ func (k *Kernel) Initialize() error {
 	return nil
 }
 
-// Start transitions the kernel into running state
+// Start activates registered subsystems
 func (k *Kernel) Start() error {
 	k.mu.Lock()
-	defer k.mu.Unlock()
 
 	if k.state != StateReady {
+		k.mu.Unlock()
 		return ErrInvalidState
 	}
 
+	k.state = StateStarting
+	subsystems := append([]Subsystem(nil), k.subsystems...)
+
+	k.mu.Unlock()
+
+	for _, subsystem := range subsystems {
+		starter, ok := subsystem.(Starter)
+		if !ok {
+			continue
+		}
+
+		if err := starter.Start(); err != nil {
+			k.mu.Lock()
+			k.state = StateFailed
+			k.mu.Unlock()
+
+			return fmt.Errorf(
+				"failed to start subsystem %s: %w",
+		     subsystem.Name(),
+					  err,
+			)
+		}
+	}
+
+	k.mu.Lock()
 	k.state = StateRunning
+	k.mu.Unlock()
 
 	return nil
 }
