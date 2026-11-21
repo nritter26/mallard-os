@@ -3,7 +3,7 @@
 </p>
 
 
-# 🦆 Mallard-OS
+# Mallard-OS
 
 ### One OS. Multiple Platforms. Go-First by Design.
 
@@ -22,7 +22,7 @@ The project currently targets the **ESP32-S3**, with ESP32-C3 compatibility as t
 
 ---
 
-## ✨ Vision
+## Vision
 
 Mallard-OS is an attempt to build an embedded operating environment using Go as its primary language.
 
@@ -43,7 +43,7 @@ The objective is to allow applications and system services to interact with hard
 
 ---
 
-## 🖥️ Platform Support
+## Platform Support
 
 Mallard-OS is designed to support multiple hardware platforms over time.
 
@@ -84,7 +84,7 @@ Hosted execution is a future architectural direction, not a current supported fe
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 Mallard-OS follows a layered architecture that separates applications, operating-system functionality, hardware interfaces, drivers, and physical hardware.
 
@@ -132,7 +132,7 @@ For example, an application requesting GPIO functionality should not need to kno
 
 ---
 
-## 🧩 Technology Stack
+## Technology Stack
 
 | Technology | Responsibility | Status |
 |---|---|---|
@@ -156,7 +156,7 @@ Python is intended for host-side tooling, testing, serial communication, and dev
 
 ---
 
-## ⚙️ Current Implementation
+## Current Implementation
 
 Mallard-OS has progressed beyond the initial bootloader and terminal stage.
 
@@ -310,7 +310,7 @@ Memory statistics represent runtime heap information, not total physical SRAM, P
 
 ---
 
-## 🗂️ Project Structure
+## Project Structure
 
 The repository is evolving toward a modular architecture.
 
@@ -361,7 +361,7 @@ Existing working components will not be rewritten simply to match a proposed dir
 
 ---
 
-## 🧠 Memory Architecture
+## Memory Architecture
 
 Memory management is an important part of the long-term design.
 
@@ -389,7 +389,7 @@ However, PSRAM initialization, allocator integration, DMA compatibility, and Tin
 
 ---
 
-## 💾 Planned Storage Architecture
+## Planned Storage Architecture
 
 Storage will be implemented independently of the underlying hardware.
 
@@ -428,7 +428,7 @@ Persistent storage will remain optional. Mallard-OS must be able to boot and pro
 
 ---
 
-## 🛣️ Roadmap
+## Roadmap
 
 Mallard-OS is developed incrementally, with each milestone introducing a new system capability.
 
@@ -474,7 +474,7 @@ Acceptance criteria:
 
 ---
 
-## 🧪 Testing Strategy
+## Testing Strategy
 
 Mallard-OS uses a combination of host-side testing and physical hardware verification.
 
@@ -537,7 +537,7 @@ Python tooling will provide:
 
 ---
 
-## 🔬 Experimental Work
+## Experimental Work
 
 ### ESP32-S3 Dual-Core Runtime
 
@@ -567,7 +567,7 @@ No multicore behavior will be considered verified until tested on physical hardw
 
 ---
 
-## 🎯 Design Principles
+## Design Principles
 
 Mallard-OS follows these principles:
 
@@ -584,7 +584,7 @@ Mallard-OS follows these principles:
 
 ---
 
-## 🚫 Non-Goals
+## Non-Goals
 
 Mallard-OS is an embedded operating environment, not a replacement for Linux.
 
@@ -602,7 +602,7 @@ These areas may be reconsidered as the project evolves.
 
 ---
 
-## 🤝 Development Philosophy
+## Development Philosophy
 
 Mallard-OS is developed as an incremental engineering project.
 
@@ -621,7 +621,7 @@ Architectural decisions should be introduced when they solve actual problems, no
 
 ---
 
-## 📌 Project Status
+## Project Status
 
 **Current development focus:** Kernel foundation and Device Manager architecture.
 
@@ -647,7 +647,7 @@ Architectural decisions should be introduced when they solve actual problems, no
 
 ---
 
-## 📖 Documentation
+## Documentation
 
 Project documentation and implementation notes:
 
@@ -659,7 +659,7 @@ The architecture document describes the intended long-term direction. It should 
 
 ---
 
-## 🦆 Final Thoughts
+## Final Thoughts
 
 Mallard-OS is an exploration of what a small, modular, Go-first operating environment can become.
 
