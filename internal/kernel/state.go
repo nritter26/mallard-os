@@ -14,13 +14,14 @@ const (
 
 func (s State) String() string {
 	switch s {
-
 		case StateUninitialized:
-			return "unitialized"
+			return "uninitialized"
 		case StateInitializing:
 			return "initializing"
 		case StateReady:
 			return "ready"
+		case StateStarting:
+			return "starting"
 		case StateRunning:
 			return "running"
 		case StateStopped:
@@ -31,4 +32,3 @@ func (s State) String() string {
 			return "unknown"
 	}
 }
-
