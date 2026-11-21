@@ -195,3 +195,56 @@ func (m *Manager) Shutdown() error {
 
 	return errors.Join(shutdownErrors...)
 }
+
+func (m *Manager) Get(name string) (Device, State, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	dev, exists := m.devices[name]
+	if !exists {
+		return nil, "", false
+	}
+
+	return dev, m.states[name], true
+}
+
+func (m *Manager) List() []DeviceInfo {
+	m.mu.RLock()
+
+	type entry struct {
+		dev   Device
+		state State
+	}
+
+	entries := make([]entry, 0, len(m.order))
+
+	for _, name := range m.order {
+		entries = append(entries, entry{
+			dev: m.devices[name],
+			state: m.states[name],
+		})
+	}
+
+	m.mu.RUnlock()
+
+	result := make([]DeviceInfo, 0, len(entries))
+
+	for _, entry := range entries {
+		result = append(result, DeviceInfo{
+			Name: entry.dev.Name(),
+				Type: entry.dev.Type(),
+				State: entry.state,
+				Required: entry.dev.Required(),
+		})
+	}
+
+	return result
+}
+
+func (m *Manager) State(name string) (State, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	state, exists := m.states[name]
+	return state, exists
+}

@@ -18,6 +18,13 @@ type Device interface {
 	Required() bool
 }
 
+type DeviceInfo struct {
+	Name string
+	Type Type
+	State State
+	Required bool
+}
+
 type Stopper interface {
 	Stop() error
 }

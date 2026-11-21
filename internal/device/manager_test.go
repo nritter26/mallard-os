@@ -455,3 +455,92 @@ func TestShutdownDuringInitialization(t *testing.T) {
 		t.Fatal("device should be ready after initialization")
 	}
 }
+
+func TestGetDevice(t *testing.T) {
+	m := NewManager()
+
+	dev := &mockDevice{
+		name: "console",
+		deviceType: TypeSerial,
+		required: true,
+	}
+
+	if err := m.Register(dev); err != nil {
+		t.Fatal(err)
+	}
+
+	got, state, exists := m.Get("console")
+
+	if !exists {
+		t.Fatal("device should exist")
+	}
+
+	if got.Name() != "console" {
+		t.Fatalf("name = %q, want console", got.Name())
+	}
+
+	if state != StateUninitialized {
+		t.Fatalf("state = %v, want %v", state, StateUninitialized)
+	}
+
+	_, _, exists = m.Get("unknown")
+
+	if exists {
+		t.Fatal("unknown device should not exist")
+	}
+}
+
+func TestListDevices(t *testing.T) {
+	m := NewManager()
+
+	_ = m.Register(&mockDevice{
+		name:       "console",
+		deviceType: TypeSerial,
+		required:   true,
+	})
+
+	_ = m.Register(&mockDevice{
+		name:       "gpio",
+		deviceType: TypeGPIO,
+	})
+
+	devices := m.List()
+
+	if len(devices) != 2 {
+		t.Fatalf("device count = %d, want 2", len(devices))
+	}
+
+	if devices[0].Name != "console" {
+		t.Fatalf("first device = %q, want console", devices[0].Name)
+	}
+
+	if devices[1].Name != "gpio" {
+		t.Fatalf("second device = %q, want gpio", devices[1].Name)
+	}
+
+	if !devices[0].Required {
+		t.Fatal("console should be required")
+	}
+}
+
+func TestGetDeviceState(t *testing.T) {
+	m := NewManager()
+
+	_ = m.Register(&mockDevice{name: "console"})
+
+	state, exists := m.State("console")
+
+	if !exists {
+		t.Fatal("console should exist")
+	}
+
+	if state != StateUninitialized {
+		t.Fatalf("state = %v, want %v", state, StateUninitialized)
+	}
+
+	_, exists = m.State("unknown")
+
+	if exists {
+		t.Fatal("unknown device should not exist")
+	}
+}
