@@ -4,9 +4,9 @@ import (
 	"time"
 	"machine"
 
-	builtin "mallard-os/internal/cmd"
+	commands "mallard-os/internal/commands"
 	mallardruntime "mallard-os/internal/runtime"
-	"mallard-os/internal/boot"
+	"mallard-os/internal/kernel"
 	"mallard-os/internal/console"
 	"mallard-os/internal/hal"
 	"mallard-os/internal/logger"
@@ -44,18 +44,30 @@ func main() {
 		led,
 	)
 
-	// Initialize boot manager
-	manager := boot.NewManager(hardware)
-	manager.SetLogger(log)
+	// Initialize Mallard-OS kernel
+	mallardKernel := kernel.New()
 
-	// Execute boot sequence
-	if err := manager.Run(); err != nil {
-		log.Log(logger.ERROR, "Mallard-OS boot failed: "+err.Error())
+	// Register hardware subsystem
+	if err := mallardKernel.Register(hardware); err != nil {
+		log.Log(logger.ERROR, "Failed to register HAL: "+err.Error())
 
 		for {
 			time.Sleep(time.Second)
 		}
 	}
+
+	// Initialize kernel and registered subsystems
+	log.Log(logger.INFO, "Initializing Mallard-OS kernel")
+
+	if err := mallardKernel.Initialize(); err != nil {
+		log.Log(logger.ERROR, "Kernel initialization failed: "+err.Error())
+
+		for {
+			time.Sleep(time.Second)
+		}
+	}
+
+	log.Log(logger.INFO, "Mallard-OS kernel initialized")
 
 	// Configure platform clock
 	log.Log(logger.INFO, "Configuring platform clock")
@@ -90,7 +102,7 @@ func main() {
 	registry := shell.NewRegistry()
 
 	// Register built-in commands
-	if err := builtin.Register(registry); err != nil {
+	if err := commands.Register(registry); err != nil {
 		log.Log(logger.ERROR, "Failed to register built-in commands: "+err.Error())
 
 		for {
@@ -108,6 +120,17 @@ func main() {
 			time.Sleep(time.Second)
 		}
 	}
+
+	// Start kernel
+	if err := mallardKernel.Start(); err != nil {
+		log.Log(logger.ERROR, "Kernel startup failed: "+err.Error())
+
+		for {
+			time.Sleep(time.Second)
+		}
+	}
+
+	log.Log(logger.INFO, "Mallard-OS kernel running")
 
 	// Main system loop
 	lastBlink := time.Now()

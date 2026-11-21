@@ -8,17 +8,17 @@ type Device interface {
 }
 
 type Manager struct {
-	Devices []Device
+	devices []Device
 }
 
 func NewManager(devices ...Device) *Manager {
 	return &Manager {
-		Devices: devices,
+		devices: devices,
 	}
 }
 
 func (m *Manager) Init() error {
-	for _, device := range m.Devices {
+	for _, device := range m.devices {
 		if err := device.Init(); err != nil {
 			return fmt.Errorf(
 				"hal: device %s initialization failed: %w",
