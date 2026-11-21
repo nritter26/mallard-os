@@ -193,3 +193,265 @@ func TestInitializeRegistrationOrder(t *testing.T) {
 		}
 	}
 }
+
+type mockStoppableDevice struct {
+	*mockDevice
+	stopErr error
+	stopCalls int
+	stopOrder *[]string
+}
+
+func (d *mockStoppableDevice) Stop() error {
+	d.stopCalls++
+
+	if d.stopOrder != nil {
+		*d.stopOrder = append(*d.stopOrder, d.name)
+	}
+
+	return d.stopErr
+}
+
+func TestShutdownReverseOrder(t *testing.T) {
+	m := NewManager()
+	var order []string
+
+	first := &mockStoppableDevice{
+		mockDevice: &mockDevice{name: "console"},
+		stopOrder:  &order,
+	}
+
+	second := &mockStoppableDevice{
+		mockDevice: &mockDevice{name: "gpio"},
+		stopOrder:  &order,
+	}
+
+	_ = m.Register(first)
+	_ = m.Register(second)
+
+	if err := m.Initialize(); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := m.Shutdown(); err != nil {
+		t.Fatalf("Shutdown() error = %v", err)
+	}
+
+	expected := []string{"gpio", "console"}
+
+	for i, name := range expected {
+		if order[i] != name {
+			t.Fatalf("shutdown order = %v, want %v", order, expected)
+		}
+	}
+}
+
+func TestShutdownContinuesAfterFailure(t *testing.T) {
+	m := NewManager()
+	failure := errors.New("shutdown failed")
+
+	first := &mockStoppableDevice{
+		mockDevice: &mockDevice{name: "console"},
+		stopErr:    failure,
+	}
+
+	second := &mockStoppableDevice{
+		mockDevice: &mockDevice{name: "gpio"},
+	}
+
+	_ = m.Register(first)
+	_ = m.Register(second)
+
+	if err := m.Initialize(); err != nil {
+		t.Fatal(err)
+	}
+
+	err := m.Shutdown()
+
+	if !errors.Is(err, failure) {
+		t.Fatalf("Shutdown() error = %v, want %v", err, failure)
+	}
+
+	if first.stopCalls != 1 || second.stopCalls != 1 {
+		t.Fatal("shutdown should attempt to stop every initialized device")
+	}
+
+	if m.states["console"] != StateFailed {
+		t.Fatal("console should be marked failed")
+	}
+
+	if m.states["gpio"] != StateStopped {
+		t.Fatal("gpio should be stopped")
+	}
+}
+
+func TestShutdownDeviceWithoutStopper(t *testing.T) {
+	m := NewManager()
+
+	dev := &mockDevice{name: "gpio"}
+
+	_ = m.Register(dev)
+
+	if err := m.Initialize(); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := m.Shutdown(); err != nil {
+		t.Fatalf("Shutdown() error = %v", err)
+	}
+
+	if m.states["gpio"] != StateStopped {
+		t.Fatalf("state = %v, want %v", m.states["gpio"], StateStopped)
+	}
+}
+
+func TestInitializeTwice(t *testing.T) {
+	m := NewManager()
+	dev := &mockDevice{name: "console"}
+
+	_ = m.Register(dev)
+
+	if err := m.Initialize(); err != nil {
+		t.Fatal(err)
+	}
+
+	err := m.Initialize()
+
+	if !errors.Is(err, ErrAlreadyInitialized) {
+		t.Fatalf("error = %v, want %v", err, ErrAlreadyInitialized)
+	}
+
+	if dev.initCalls != 1 {
+		t.Fatalf("Init() called %d times, want 1", dev.initCalls)
+	}
+}
+
+func TestRegisterAfterInitialize(t *testing.T) {
+	m := NewManager()
+
+	if err := m.Initialize(); err != nil {
+		t.Fatal(err)
+	}
+
+	err := m.Register(&mockDevice{name: "gpio"})
+
+	if !errors.Is(err, ErrAlreadyInitialized) {
+		t.Fatalf("error = %v, want %v", err, ErrAlreadyInitialized)
+	}
+}
+
+func TestShutdownTwice(t *testing.T) {
+	m := NewManager()
+
+	dev := &mockStoppableDevice{
+		mockDevice: &mockDevice{name: "console"},
+	}
+
+	_ = m.Register(dev)
+
+	if err := m.Initialize(); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := m.Shutdown(); err != nil {
+		t.Fatal(err)
+	}
+
+	err := m.Shutdown()
+
+	if !errors.Is(err, ErrManagerShuttingDown) {
+		t.Fatalf("error = %v, want %v", err, ErrManagerShuttingDown)
+	}
+
+	if dev.stopCalls != 1 {
+		t.Fatalf("Stop() called %d times, want 1", dev.stopCalls)
+	}
+}
+
+type blockingDevice struct {
+	*mockDevice
+	started chan struct{}
+	release chan struct{}
+}
+
+func (d *blockingDevice) Init() error {
+	close(d.started)
+	<-d.release
+	return nil
+}
+
+func TestConcurrentInitialize(t *testing.T) {
+	m := NewManager()
+
+	dev := &blockingDevice{
+		mockDevice: &mockDevice{
+			name: "console",
+			required: true,
+		},
+		started: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+
+	if err := m.Register(dev); err != nil {
+		t.Fatal(err)
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <-m.Initialize()
+	}()
+
+	<-dev.started
+
+	err := m.Initialize()
+
+	if !errors.Is(err, ErrInitializationInProgress) {
+		t.Fatalf("error = %v, want %v,", err, ErrInitializationInProgress)
+	}
+
+	close(dev.release)
+
+	if err := <-done; err != nil {
+		t.Fatalf("first Initialize() error %v", err)
+	}
+}
+
+func TestShutdownDuringInitialization(t *testing.T) {
+	m := NewManager()
+
+	dev := &blockingDevice{
+		mockDevice: &mockDevice{
+			name: "console",
+			required: true,
+		},
+		started: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+
+	if err := m.Register(dev); err != nil {
+		t.Fatal(err)
+	}
+
+	done := make(chan error, 1)
+
+	go func() {
+		done <- m.Initialize()
+	}()
+
+	<-dev.started
+
+	err := m.Shutdown()
+
+	if !errors.Is(err, ErrInitializationInProgress) {
+		t.Fatalf("error = %v, want %v", err, ErrInitializationInProgress)
+	}
+
+	close(dev.release)
+
+	if err := <-done; err != nil {
+		t.Fatalf("Initialize() error = %v", err)
+	}
+
+	if m.states["console"] != StateReady {
+		t.Fatal("device should be ready after initialization")
+	}
+}

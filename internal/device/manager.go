@@ -10,7 +10,9 @@ var (
 	ErrNilDevice = errors.New("device cannot be nil")
 	ErrEmptyDeviceName = errors.New("device name cannot be empty")
 	ErrDuplicateDevice = errors.New("device already registered")
-
+	ErrAlreadyInitialized = errors.New("device manager already initialized")
+	ErrInitializationInProgress = errors.New("device initialization in progress")
+	ErrManagerShuttingDown = errors.New("device manager is shutting down")
 )
 
 type Manager struct {
@@ -19,6 +21,9 @@ type Manager struct {
 	states map[string]State
 	initialized []string
 	order []string
+	initializationStarted bool
+	initializing bool
+	shuttingDown bool
 }
 
 func NewManager() *Manager {
@@ -42,6 +47,14 @@ func (m *Manager) Register(dev Device) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	if m.shuttingDown {
+		return ErrManagerShuttingDown
+	}
+
+	if m.initializationStarted {
+		return ErrAlreadyInitialized
+	}
+
 	if _, exists := m.devices[name]; exists {
 		return ErrDuplicateDevice
 	}
@@ -57,12 +70,36 @@ func (m *Manager) Register(dev Device) error {
 func (m *Manager) Initialize() error {
 	m.mu.Lock()
 
+	if m.shuttingDown {
+		m.mu.Unlock()
+		return ErrManagerShuttingDown
+	}
+
+	if m.initializing {
+		m.mu.Unlock()
+		return ErrInitializationInProgress
+	}
+
+	if m.initializationStarted {
+		m.mu.Unlock()
+		return ErrAlreadyInitialized
+	}
+
+	m.initializationStarted = true
+	m.initializing = true
+
 	order := append([]string(nil), m.order...)
+
 	devices := make(map[string]Device, len(m.devices))
 
 	for name, dev := range m.devices {
 		devices[name] = dev
 	}
+	defer func() {
+		m.mu.Lock()
+		m.initializing = false
+		m.mu.Unlock()
+	}()
 
 	m.mu.Unlock()
 
@@ -96,4 +133,65 @@ func (m *Manager) Initialize() error {
 	}
 
 	return nil
+}
+
+func (m *Manager) Shutdown() error {
+	m.mu.Lock()
+
+	if m.initializing {
+		m.mu.Unlock()
+		return ErrInitializationInProgress
+	}
+
+	if m.shuttingDown {
+		m.mu.Unlock()
+		return ErrManagerShuttingDown
+	}
+
+	m.shuttingDown = true
+
+	var devices []string
+
+	for i := len(m.initialized) - 1; i >= 0; i-- {
+		name := m.initialized[i]
+
+		if m.states[name] != StateReady {
+			continue
+		}
+
+		m.states[name] = StateStopping
+		devices = append(devices, name)
+	}
+
+	m.mu.Unlock()
+
+	var shutdownErrors []error
+
+	for _, name := range devices {
+		m.mu.RLock()
+		dev := m.devices[name]
+		m.mu.RUnlock()
+
+		stopper, ok := dev.(Stopper)
+		if ok {
+			if err := stopper.Stop(); err != nil {
+				shutdownErrors = append(
+					shutdownErrors,
+			    fmt.Errorf("stop device %q: %w", name, err),
+				)
+
+				m.mu.Lock()
+				m.states[name] = StateFailed
+				m.mu.Unlock()
+
+				continue
+			}
+		}
+
+		m.mu.Lock()
+		m.states[name] = StateStopped
+		m.mu.Unlock()
+	}
+
+	return errors.Join(shutdownErrors...)
 }
