@@ -12,6 +12,7 @@ import (
 	"mallard-os/internal/logger"
 	"mallard-os/internal/shell"
 	"mallard-os/internal/device"
+	"mallard-os/internal/memory"
 )
 
 func main() {
@@ -54,6 +55,10 @@ func main() {
 		panic(err)
 	}
 
+	// Register Memory Manager
+
+	memoryManager := memory.NewManager()
+
 	// Initialize Mallard-OS kernel
 	mallardKernel := kernel.New()
 
@@ -62,6 +67,10 @@ func main() {
 		for {
 			time.Sleep(time.Second)
 		}
+	}
+
+	if err := mallardKernel.Register(memoryManager); err != nil {
+		panic(err)
 	}
 
 	registry := shell.NewRegistry()
